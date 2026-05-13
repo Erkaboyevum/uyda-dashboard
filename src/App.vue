@@ -4,18 +4,16 @@
 
 <script setup>
 import { onMounted, onUnmounted } from 'vue';
+import { useTheme } from '@/composables/useTheme';
 
-function applyTheme() {
+const { syncFromTelegram } = useTheme();
+
+function onTgThemeChange() {
+  syncFromTelegram();
   const tg = window.Telegram?.WebApp;
-  if (!tg) return;
-  if (tg.colorScheme === 'dark') {
-    document.body.classList.add('theme-dark');
-  } else {
-    document.body.classList.remove('theme-dark');
-  }
-  tg.setHeaderColor?.('secondary_bg_color');
-  const bg = tg.themeParams?.bg_color;
-  if (bg) tg.setBackgroundColor?.(bg);
+  tg?.setHeaderColor?.('secondary_bg_color');
+  const bg = tg?.themeParams?.bg_color;
+  if (bg) tg?.setBackgroundColor?.(bg);
 }
 
 onMounted(() => {
@@ -23,13 +21,13 @@ onMounted(() => {
   if (tg) {
     tg.ready();
     tg.expand();
-    applyTheme();
-    tg.onEvent('themeChanged', applyTheme);
+    onTgThemeChange();
+    tg.onEvent('themeChanged', onTgThemeChange);
   }
 });
 
 onUnmounted(() => {
-  window.Telegram?.WebApp?.offEvent?.('themeChanged', applyTheme);
+  window.Telegram?.WebApp?.offEvent?.('themeChanged', onTgThemeChange);
 });
 </script>
 
