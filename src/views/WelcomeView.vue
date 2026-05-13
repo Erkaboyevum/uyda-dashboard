@@ -61,11 +61,10 @@ export default {
       'ngrok-skip-browser-warning': 'true',
     });
 
-    // Decision tree for post-login routing
     function routeByRole(role) {
-      if (canAccessCash(role)) return router.push('/documents');
-      if (canAccessAnalytics(role)) return router.push('/analytics');
-      return router.push('/profile');
+      if (canAccessCash(role))      return router.push('/app/moliya');
+      if (canAccessAnalytics(role)) return router.push('/app/savdo');
+      return router.push('/app/moliya');
     }
 
     const checkUser = async () => {

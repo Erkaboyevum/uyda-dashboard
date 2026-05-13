@@ -328,7 +328,7 @@ export default {
     const closeModal = () => {
       showErrModal.value = false;
       showSccModal.value = false;
-      router.push('/documents'); // Modal yopilganda hujjatlar sahifasiga qaytish
+      router.push('/app/moliya');
     };
 
     watch(documentType, (newVal) => {

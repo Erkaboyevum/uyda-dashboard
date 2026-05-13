@@ -1,0 +1,68 @@
+:root {
+  /* Brand */
+  --brand-50:  #EFF6FF;
+  --brand-500: #2563EB;
+  --brand-600: #1D4ED8;
+
+  /* Surfaces — Telegram theme aware */
+  --surface-1: var(--tg-theme-bg-color, #FFFFFF);
+  --surface-2: var(--tg-theme-secondary-bg-color, #F3F4F6);
+  --text-primary:   var(--tg-theme-text-color,  #1F2937);
+  --text-secondary: var(--tg-theme-hint-color,   #6B7280);
+  --border-subtle: rgba(0, 0, 0, 0.06);
+
+  /* Status pill tokens */
+  --status-success-bg: #DCFCE7;
+  --status-success-fg: #15803D;
+  --status-error-bg:   #FEE2E2;
+  --status-error-fg:   #B91C1C;
+  --status-warn-bg:    #FEF3C7;
+  --status-warn-fg:    #B45309;
+
+  /* Spacing (8-pt grid) */
+  --sp-xs:  4px;
+  --sp-sm:  8px;
+  --sp-md:  16px;
+  --sp-lg:  24px;
+  --sp-xl:  32px;
+  --sp-2xl: 48px;
+
+  /* Font */
+  --font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', 'Roboto', sans-serif;
+
+  /* Layout */
+  --header-h: 64px;
+  --bar-h:    64px;
+  --sab: env(safe-area-inset-bottom, 0px);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root { --border-subtle: rgba(255, 255, 255, 0.08); }
+}
+
+/* Shimmer animation */
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--surface-2) 0%,
+    var(--surface-1) 50%,
+    var(--surface-2) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+}
+
+/* Card list stagger */
+.card-list-enter-active {
+  transition: opacity 350ms ease, transform 350ms ease;
+}
+.card-list-enter-from {
+  opacity: 0;
+  transform: translateY(12px);
+}

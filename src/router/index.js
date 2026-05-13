@@ -1,66 +1,63 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import MainLayout from '@/components/MainLayout.vue'
 
 const routes = [
-  { 
-    path: '/', 
-    name: 'Welcome', 
-    component: () => import('@/views/WelcomeView.vue') 
+  {
+    path: '/',
+    name: 'Welcome',
+    component: () => import('@/views/WelcomeView.vue'),
   },
-  { 
-    path: '/register', 
-    name: 'Register', 
-    component: () => import('@/views/RegisterView.vue') 
+  {
+    path: '/register',
+    name: 'Register',
+    component: () => import('@/views/RegisterView.vue'),
   },
-  { 
-    path: '/sent', 
-    name: 'Sent', 
-    component: () => import('@/views/Sent.vue') 
+  {
+    path: '/sent',
+    name: 'Sent',
+    component: () => import('@/views/Sent.vue'),
   },
-  { 
-    path: '/documents', 
-    name: 'Documents', 
-    component: () => import('@/views/DocumentsView.vue') 
+  {
+    path: '/app',
+    component: MainLayout,
+    children: [
+      { path: '', redirect: 'moliya' },
+      {
+        path: 'moliya',
+        name: 'Moliya',
+        component: () => import('@/views/DocumentsView.vue'),
+      },
+      {
+        path: 'savdo',
+        name: 'Savdo',
+        component: () => import('@/views/SavdoView.vue'),
+      },
+    ],
   },
-  { 
-    path: '/addDocument', 
-    name: 'DocumentCreate', 
+  {
+    path: '/addDocument',
+    name: 'DocumentCreate',
     component: () => import('@/views/DocumentCreate.vue'),
   },
-  { 
-    path: '/profile', 
-    name: 'ProfileView', 
-    component: () => import('@/views/ProfileView.vue') 
-  },
-  { 
-    path: '/profileEdit', 
-    name: 'ProfileEdit', 
-    component: () => import('@/views/ProfileEdit.vue') 
-  },
   {
-    path: '/feedbacks',
-    name: 'Feedbacks',
-    component: () => import('@/views/feedbacksView.vue')
+    path: '/profileEdit',
+    name: 'ProfileEdit',
+    component: () => import('@/views/ProfileEdit.vue'),
   },
-  {
-    path: '/analytics',
-    name: 'Analytics',
-    component: () => import('@/views/AnalyticsView.vue'),
-  }
+  // Legacy redirects
+  { path: '/documents',  redirect: '/app/moliya' },
+  { path: '/analytics',  redirect: '/app/savdo' },
+  { path: '/feedbacks',  redirect: '/app/savdo' },
+  { path: '/profile',    redirect: '/app/moliya' },
+  { path: '/profileedit', redirect: '/profileEdit' },
 ]
-
 
 const router = createRouter({
   history: createWebHistory('/'),
   routes,
-  scrollBehavior(to, from, savedPosition) {
+  scrollBehavior() {
     return { top: 0 }
-  }
-});
+  },
+})
 
-// Global navigation guard
-router.beforeEach((to, from, next) => {
-  console.log(`Navigation from: ${from} to: ${to.name}`);
-  next();
-});
-
-export default router;
+export default router

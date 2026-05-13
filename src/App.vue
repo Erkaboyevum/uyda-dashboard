@@ -1,94 +1,93 @@
 <template>
-  <div class="app container">
-    <transition :name="transitionName" mode="out-in">
-      <router-view />
-    </transition>
-  </div>
+  <router-view />
 </template>
 
 <script setup>
-import { onMounted, ref, watch } from 'vue';
-import { useRouter } from 'vue-router';
-import axios from 'axios';
+import { onMounted } from 'vue';
 
-
-const router = useRouter();
-const isTg = ref(false);
-const transitionName = ref("slide-right"); // Default transition
-
-onMounted(async() => {
-  // Telegram muhitida ishlayotganimizni tekshirish
-  if (window.Telegram?.WebApp) {
-    isTg.value = true;
-    initTelegramWebApp();
+onMounted(() => {
+  const tg = window.Telegram?.WebApp;
+  if (tg) {
+    tg.ready();
+    tg.expand();
   }
-
-  const getHeaders = () => ({
-      "Authorization": "Basic " + btoa("admin:57325732"),
-      "Content-Type": "application/json",
-      "ngrok-skip-browser-warning": "true"
-    });
 });
-
-function initTelegramWebApp() {
-  const tg = window.Telegram.WebApp;
-
-  // WebAppni ishga tushirish
-  tg.ready();
-  tg.expand();
-  
-
-  // Orqaga tugmasi uchun handler
-  tg.BackButton.onClick(() => {
-    transitionName.value = "slide-left"; // Chapga qaytish animatsiyasi
-    if (window.history.state.back) {
-      router.go(-1);
-    } else {
-      tg.close();
-    }
-  });
-}
 </script>
 
 <style>
-* {
-  font-family: sans-serif;
+@import '@/styles/tokens.css';
+
+*, *::before, *::after {
+  box-sizing: border-box;
   padding: 0;
   margin: 0;
-  box-sizing: border-box;
-  text-decoration: none;
-  outline: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* O'ngga harakatlanadigan transition */
-.slide-right-enter-active,
-.slide-right-leave-active {
-  transition: transform 0.5s ease, opacity 0.5s ease;
+html, body, #app {
+  height: 100%;
+  min-height: 100dvh;
+  overscroll-behavior: none;
 }
 
-.slide-right-enter-from {
-  transform: translateX(100%);
-  opacity: 0;
+body {
+  font-family: var(--font);
+  background: var(--surface-1);
+  color: var(--text-primary);
+  font-size: 16px;
+  line-height: 1.5;
 }
 
-.slide-right-leave-to {
-  transform: translateX(-100%);
-  opacity: 0;
+/* Prevent iOS tap flash */
+* { -webkit-tap-highlight-color: transparent; }
+
+/* Smooth scrolling */
+:root { scroll-behavior: smooth; }
+
+/* Focus ring for keyboard navigation */
+:focus-visible {
+  outline: 2px solid var(--brand-500);
+  outline-offset: 2px;
 }
 
-/* Chapga harakatlanadigan transition */
-.slide-left-enter-active,
-.slide-left-leave-active {
-  transition: transform 0.5s ease, opacity 0.5s ease;
+/* Scrollbar hide on WebKit */
+::-webkit-scrollbar { display: none; }
+* { scrollbar-width: none; }
+
+/* Global button reset */
+button {
+  font-family: var(--font);
+  cursor: pointer;
 }
 
-.slide-left-enter-from {
-  transform: translateX(-100%);
-  opacity: 0;
+/* Global input reset */
+input, select, textarea {
+  font-family: var(--font);
 }
 
-.slide-left-leave-to {
-  transform: translateX(100%);
-  opacity: 0;
+/* Skeleton utility (global so all components can use) */
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--surface-2) 0%,
+    var(--surface-1) 50%,
+    var(--surface-2) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+}
+
+/* prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 </style>
