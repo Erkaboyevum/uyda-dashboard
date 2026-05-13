@@ -14,6 +14,7 @@ export default {
   statyaGroup: "Группа статьи",
   languageUz: "🇺🇿 Узбекский",
   languageRu: "🇷🇺 Русский",
+  themeNote: "Тема меняется автоматически из настроек Telegram",
   title: "Создать документ",
   documentType: "Тип документа:",
   expense: "Расход",

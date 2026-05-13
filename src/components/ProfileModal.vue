@@ -56,6 +56,26 @@
           </div>
         </div>
 
+        <!-- Language switcher -->
+        <div class="section-label">{{ t('language') }}</div>
+        <div class="lang-seg">
+          <button
+            class="lang-btn"
+            :class="{ active: currentLang === 'uzbek-crylic' }"
+            @click="switchLang('uzbek-crylic')"
+          >{{ t('languageUz') }}</button>
+          <button
+            class="lang-btn"
+            :class="{ active: currentLang === 'russian' }"
+            @click="switchLang('russian')"
+          >{{ t('languageRu') }}</button>
+        </div>
+
+        <!-- Theme note -->
+        <div class="theme-note">
+          🌙 {{ t('themeNote') }}
+        </div>
+
         <button class="edit-btn" @click="goEdit">{{ t('edit') }}</button>
       </div>
     </div>
@@ -69,17 +89,27 @@ import { useI18n } from 'vue-i18n';
 import axios from 'axios';
 import apiLink from '@/config/api';
 import { useCurrentUser } from '@/composables/useCurrentUser';
+import i18n, { LANG_STORAGE_KEY } from '@/i18n';
 
 const emit   = defineEmits(['close']);
 const router = useRouter();
 const { t }  = useI18n();
 const { state } = useCurrentUser();
 
-const user    = ref({});
-const loading = ref(true);
-const dragY   = ref(0);
+const user       = ref({});
+const loading    = ref(true);
+const dragY      = ref(0);
 const isDragging = ref(false);
 let   startY = 0;
+
+const currentLang = ref(localStorage.getItem(LANG_STORAGE_KEY) || 'uzbek-crylic');
+
+function switchLang(lang) {
+  window.Telegram?.WebApp?.HapticFeedback?.selectionChanged?.();
+  currentLang.value = lang;
+  i18n.global.locale.value = lang;
+  localStorage.setItem(LANG_STORAGE_KEY, lang);
+}
 
 const initials = computed(() => {
   const n = user.value.fullName || '';
@@ -277,6 +307,36 @@ onMounted(async () => {
 .balance-val {
   color: #16A34A;
   font-variant-numeric: tabular-nums;
+}
+
+.section-label {
+  font-size: 12px; font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase; letter-spacing: 0.5px;
+  margin-bottom: 8px; margin-top: 4px;
+}
+
+.lang-seg {
+  display: flex; background: var(--surface-2);
+  border-radius: 12px; padding: 4px; gap: 3px;
+  margin-bottom: 12px;
+}
+.lang-btn {
+  flex: 1; height: 44px; border: none; border-radius: 8px;
+  background: transparent; color: var(--text-secondary);
+  font-size: 14px; font-weight: 500; cursor: pointer;
+  font-family: var(--font);
+  transition: all 180ms ease;
+}
+.lang-btn.active {
+  background: var(--surface-1); color: var(--text-primary);
+  font-weight: 700; box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+
+.theme-note {
+  font-size: 12px; color: var(--text-secondary);
+  text-align: center; padding: 8px 0 16px;
+  opacity: 0.75;
 }
 
 .edit-btn {

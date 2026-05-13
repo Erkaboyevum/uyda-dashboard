@@ -48,7 +48,7 @@
           <span class="doc-icon-glyph">{{ docIcon(doc.documentType) }}</span>
         </div>
         <div class="doc-body">
-          <div class="doc-type-label">{{ docLabel(doc.documentType) }}</div>
+          <div class="doc-type-label">{{ doc.documentType }}</div>
           <div v-if="doc.comment" class="doc-comment">{{ doc.comment }}</div>
           <div class="doc-meta">{{ doc.operation }}</div>
         </div>
@@ -186,11 +186,6 @@ export default {
       return new Intl.NumberFormat('uz-UZ').format(v);
     }
 
-    function docLabel(type) {
-      const map = { Расход: t('Расход'), Приход: t('Приход'), Перемещение: t('Перемещение') };
-      return map[type] ?? type;
-    }
-
     function docIcon(type) {
       if (type === 'Приход')      return '↓';
       if (type === 'Расход')      return '↑';
@@ -218,7 +213,7 @@ export default {
     return {
       documents, loading, profileLoading, errorMessage,
       cashRegisterName, displayBalance,
-      formatNumber, docLabel, docIcon, iconBg, amountColor,
+      formatNumber, docIcon, iconBg, amountColor,
       canAccessAnalytics, fabHaptic, t,
     };
   },

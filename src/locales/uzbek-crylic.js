@@ -14,6 +14,7 @@ export default {
   statyaGroup: "Статя гуруҳи",
   languageUz: "🇺🇿 Ўзбекча",
   languageRu: "🇷🇺 Русский",
+  themeNote: "Тема Telegram созламаларидан автоматик ўзгаради",
   title: "Ҳужжат яратиш",
   documentType: "Ҳужжат тури:",
   expense: "Харажат",
