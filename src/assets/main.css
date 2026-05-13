@@ -1,0 +1,23 @@
+:root {
+  --background-light: #f8f9fa;
+  --text-light: #212529;
+
+  --background-dark: #212529;
+  --text-dark: #f8f9fa;
+}
+
+.app.light {
+  --background: var(--background-light);
+  --text: var(--text-light);
+}
+
+.app.dark {
+  --background: var(--background-dark);
+  --text: var(--text-dark);
+}
+
+body {
+  background-color: var(--background);
+  color: var(--text);
+  transition: background-color 0.3s, color 0.3s;
+}

@@ -1,0 +1,238 @@
+*{
+    font-family: sans-serif;
+    padding: 0;
+    margin: 0;
+    box-sizing: border-box;
+    outline: none;
+    text-decoration: none;
+}
+
+/* body{
+    display: flex;
+    min-height: 100vh;
+    background: #1c1c1e;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+} */
+.container{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+}
+.container .img{
+    width: 210px;
+    height: 210px;
+    margin-bottom: 40px;
+}
+.container h1{
+    color: #E0E0E0;
+    text-align: center;
+    font-size: 18px;
+}
+.container h1 p{
+    font-weight: 800;
+    font-style: normal;
+}
+.nextBtn{
+    margin: 50px;
+    padding: 10px 40px;
+    border-radius: 15px;
+    border: none;
+    font-size: 28px;
+    background: #F7730E;
+    font-weight: 600;
+    color: #E0E0E0;
+    text-decoration-line: none;
+}
+
+.fixedNav{
+    position: fixed;
+    top: 0%;
+    left: 0%;
+    width: 100vw;
+    z-index: 111;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.fixedNav ul{
+    background: #F7730E;
+    width: 100%;
+    height: 50px;
+    position: relative;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+}
+.fixedNav ul li {
+    list-style: none;
+    color: #E0E0E0;
+    font-size: 18px;
+    justify-content: center;
+    align-items: center;
+}
+.fixedNav ul li img{
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    
+}
+.fixedNav ul li.documentsNav{
+    left: 20px;
+} 
+.fixedNav ul li.profileNav{
+    right: 20px;
+} 
+.fixedNav ul li i{
+    font-size: 20px;
+} 
+.plusFixed{
+    display: block;
+    color: aquamarine;
+    width: 55px;
+    height: 55px;
+    position: fixed;
+    bottom: 55px;
+    right: 25px;
+    font-size: 55px;
+}
+
+.form{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+}
+.form h1{
+    color: #E0E0E0;
+    margin: 25px;
+    font-size: 40px;
+}
+.form p{
+    color: #E0E0E0;
+    text-align: left;
+    margin: 5px;
+}
+.form div{
+    color: #E0E0E0;
+    font-size: 20px;
+    margin-bottom: 10px;
+}
+.form input[type="text"], .form input[type="number"], .form select, textarea{
+    border: 1px solid;
+    border-color: #F7730E;
+    font-size: 16px;
+    border-radius: 15px;
+    text-align: center;
+    margin: 10px;
+    background: #1c1c1e;
+    color: #E0E0E0;
+    padding: 0px;
+    display: block;
+    width: 85%;
+    height: 35px;
+    margin-bottom: 10px;
+    margin-top: -2px;
+}
+.form input[type="radio"]{
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 2px solid gray;
+    background: #1c1c1e;
+    cursor: pointer;
+    transition: 0.3s;
+    border: #F7730E 1px solid;
+}
+input[type="radio"]:checked {
+    background: #F7730E;
+    
+}
+
+.msg-container{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+}
+.msg-container p{
+    color: #E0E0E0;
+    text-align: center;
+    font-size: 20px;
+}
+.gifff{
+    width: 550px;
+    margin-top: -100px;
+}
+
+.reg-container img{
+    border-radius: 50%;
+    width: 150px;
+    height: 150px;
+    margin: 30px;
+}
+
+.doc-container{
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+.doc-container .doc{
+    position: relative;
+    width: 400px;
+    height: 85px;
+    border: #F7730E 1px  solid;
+    margin: 20px;
+    color: #E0E0E0;
+}
+.doc-container .doc #documentType{
+    position: absolute;
+    left: 10px;
+    top: 5px;
+    color: #F7730E;
+}
+.doc-container .doc #operation{
+    position: absolute;
+    left: 10px;
+    top: 35px;
+    font-size: 16px;
+    opacity: 0.8;
+}
+.doc-container .doc #actionType{
+    position: absolute;
+    left: 10px;
+    top: 55px;
+    font-size: 14px;
+    opacity: 0.6;
+}
+.doc-container .doc #sum{
+    position: absolute;
+    right: 40px;
+    top: 10px;
+    color: #F7730E;
+}
+.doc-container > h1{
+    color: #E0E0E0;
+    text-align: center;
+    padding: 20px;
+    font-size: 35px;
+}
+
+
+button:active, .nextBtn:active {
+    color: inherit;
+}
+.bckBtn {
+    padding: 10px 20px;
+    background: #2c2c2e; /* Qorong'i kulrang fon */
+    color: #f7730e; /* Yorqin to'q sariq matn */
+    border: 2px solid #f7730e; /* To'q sariq chegara */
+    border-radius: 5px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
