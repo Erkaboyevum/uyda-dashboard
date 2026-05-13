@@ -40,6 +40,7 @@ import { useI18n } from 'vue-i18n';
 import apiLink from '@/config/api';
 import { useCurrentUser } from '@/composables/useCurrentUser';
 import { canAccessCash, canAccessAnalytics } from '@/utils/permissions';
+import { isUserChecked } from '@/utils/user';
 
 export default {
   name: 'WelcomeView',
@@ -81,11 +82,10 @@ export default {
           return;
         }
 
-        const checked = userData.checked;
-        if (checked === true || checked === 'true') {
+        if (isUserChecked(userData)) {
           setUser(userData);
           routeByRole(userData.role);
-        } else if (checked === false || checked === 'false') {
+        } else if (userData.checked === 0 || userData.checked === false || userData.checked === '0' || userData.checked === 'false') {
           router.push('/sent');
         } else {
           showStartButton.value = true;
