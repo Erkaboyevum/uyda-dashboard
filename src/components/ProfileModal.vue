@@ -70,7 +70,7 @@ import axios from 'axios';
 import apiLink from '@/config/api';
 import { useCurrentUser } from '@/composables/useCurrentUser';
 
-defineEmits(['close']);
+const emit   = defineEmits(['close']);
 const router = useRouter();
 const { t }  = useI18n();
 const { state } = useCurrentUser();
@@ -104,16 +104,14 @@ function onTouchMove(e) {
 function onTouchEnd() {
   isDragging.value = false;
   if (dragY.value > 100) {
-    defineEmits;
-    // close via parent
-    document.querySelector('.modal-backdrop')?.dispatchEvent(new MouseEvent('click'));
+    emit('close');
   } else {
     dragY.value = 0;
   }
 }
 
 function goEdit() {
-  document.querySelector('.modal-backdrop')?.dispatchEvent(new MouseEvent('click'));
+  emit('close');
   router.push('/profileEdit');
 }
 

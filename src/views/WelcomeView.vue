@@ -1,30 +1,40 @@
 <template>
-  <div class="d-flex justify-content-center align-items-center vh-100 bg-light text-center">
-    <div class="p-4 rounded shadow-sm bg-white" style="width: 400px;">
-      <img
-        src="https://em-content.zobj.net/source/telegram/386/waving-hand_1f44b.webp"
-        loading="lazy"
-        alt="Welcome"
-        class="img-fluid rounded-circle mb-3"
-        style="width: 150px; height: 150px;"
-      />
-
-      <h1 class="h5 mb-3 text-dark">
-        {{ t("welcomeMessage") }}, {{ firstName }}!
-      </h1>
-      <p class="text-muted mb-4">{{ t("welcomeDescription") }}</p>
-
-      <div v-if="loading" class="text-muted mb-3">
-        ⏳ {{ t("loading") }}
+  <div class="welcome-page">
+    <div class="welcome-card">
+      <!-- Wave emoji -->
+      <div class="wave-wrap" :class="{ visible: show[0] }">
+        <span class="wave-emoji">👋</span>
       </div>
-      <div v-if="errorMessage" class="text-danger mb-3">
+
+      <!-- Greeting -->
+      <h1 class="greeting" :class="{ visible: show[1] }">
+        {{ t("welcomeMessage") }}, <span class="name">{{ firstName }}</span>!
+      </h1>
+
+      <!-- Subtitle -->
+      <p class="subtitle" :class="{ visible: show[2] }">
+        {{ t("welcomeDescription") }}
+      </p>
+
+      <!-- Loading state -->
+      <div v-if="loading" class="status-row" :class="{ visible: show[3] }">
+        <div class="loading-dots">
+          <span /><span /><span />
+        </div>
+      </div>
+
+      <!-- Error -->
+      <div v-if="errorMessage" class="error-msg" :class="{ visible: show[3] }">
         {{ errorMessage }}
       </div>
 
+      <!-- Start button -->
       <router-link
         v-if="showStartButton"
         to="/register"
-        class="btn btn-primary px-4"
+        class="start-btn"
+        :class="{ visible: show[3] }"
+        @click="haptic"
       >
         {{ t("start") }}
       </router-link>
@@ -33,8 +43,8 @@
 </template>
 
 <script>
-import axios from 'axios';
 import { ref, onMounted } from 'vue';
+import axios from 'axios';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import apiLink from '@/config/api';
@@ -49,11 +59,19 @@ export default {
     const { t } = useI18n();
     const { setUser } = useCurrentUser();
 
-    const chatId        = ref(null);
-    const firstName     = ref('Foydalanuvchi');
-    const loading       = ref(true);
-    const errorMessage  = ref('');
+    const chatId          = ref(null);
+    const firstName       = ref('');
+    const loading         = ref(true);
+    const errorMessage    = ref('');
     const showStartButton = ref(false);
+
+    // Stagger animation state
+    const show = ref([false, false, false, false]);
+    function stagger() {
+      [0, 1, 2, 3].forEach((i) => {
+        setTimeout(() => { show.value[i] = true; }, 120 + i * 120);
+      });
+    }
 
     const getHeaders = () => ({
       Authorization: 'Basic ' + btoa('admin:57325732'),
@@ -69,31 +87,27 @@ export default {
 
     const checkUser = async () => {
       try {
-        // Use /user endpoint — its response includes the 'checked' field
-        const response = await axios.get(`${apiLink}/user`, {
+        const res = await axios.get(`${apiLink}/user`, {
           params: { chatId: chatId.value },
           headers: getHeaders(),
         });
-
-        const userData = response.data?.data;
-        if (!userData) {
-          showStartButton.value = true;
-          return;
-        }
+        const userData = res.data?.data;
+        if (!userData) { showStartButton.value = true; return; }
 
         if (isUserChecked(userData)) {
           setUser(userData);
           routeByRole(userData.role);
-        } else if (userData.checked === 0 || userData.checked === false || userData.checked === '0' || userData.checked === 'false') {
+        } else if (
+          userData.checked === 0 || userData.checked === false ||
+          userData.checked === '0' || userData.checked === 'false'
+        ) {
           router.push('/sent');
         } else {
           showStartButton.value = true;
         }
-      } catch (error) {
-        const status = error.response?.status ?? error.status;
+      } catch (err) {
+        const status = err.response?.status ?? err.status;
         if (status === 400) {
-          // User does not exist yet — show onboarding
-          errorMessage.value = '';
           showStartButton.value = true;
         } else {
           errorMessage.value = t('serverError');
@@ -103,38 +117,154 @@ export default {
       }
     };
 
+    function haptic() {
+      window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('medium');
+    }
+
     onMounted(() => {
-      if (window.Telegram?.WebApp) {
-        const tg = window.Telegram.WebApp;
+      stagger();
+      const tg = window.Telegram?.WebApp;
+      if (tg) {
         tg.ready();
         tg.expand();
-
         if (tg.initDataUnsafe?.user) {
-          chatId.value = tg.initDataUnsafe.user.id;
+          chatId.value  = tg.initDataUnsafe.user.id;
           firstName.value = tg.initDataUnsafe.user.first_name || t('defaultUser');
           checkUser();
         } else {
           errorMessage.value = t('userNotFound');
-          loading.value = false;
+          loading.value      = false;
           showStartButton.value = true;
         }
       } else {
-        // Dev mode outside Telegram
-        errorMessage.value = t('notTelegramEnvironment');
-        loading.value = false;
+        firstName.value       = t('defaultUser');
+        errorMessage.value    = t('notTelegramEnvironment');
+        loading.value         = false;
         showStartButton.value = true;
       }
     });
 
-    return { firstName, loading, errorMessage, showStartButton, t };
+    return { firstName, loading, errorMessage, showStartButton, show, haptic, t };
   },
 };
 </script>
 
 <style scoped>
-.img-fluid { max-width: 100%; height: auto; }
-h1 { font-size: 1.25rem; font-weight: 600; }
-p { font-size: 0.9rem; }
-.bg-light { background-color: #f8f9fa !important; }
-.shadow-sm { box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075) !important; }
+.welcome-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  padding: 24px 20px;
+  background: var(--surface-1);
+}
+
+.welcome-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  width: 100%;
+  max-width: 360px;
+  gap: 0;
+}
+
+/* Shared fade-in */
+.wave-wrap, .greeting, .subtitle, .status-row, .error-msg, .start-btn {
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 400ms ease, transform 400ms ease;
+}
+.wave-wrap.visible, .greeting.visible, .subtitle.visible,
+.status-row.visible, .error-msg.visible, .start-btn.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Wave emoji */
+.wave-wrap {
+  margin-bottom: 20px;
+}
+@keyframes wave {
+  0%, 100% { transform: rotate(0deg); }
+  20%       { transform: rotate(20deg); }
+  40%       { transform: rotate(-8deg); }
+  60%       { transform: rotate(16deg); }
+  80%       { transform: rotate(-4deg); }
+}
+.wave-emoji {
+  font-size: 72px;
+  display: inline-block;
+  animation: wave 2.5s ease-in-out 0.6s 1;
+  transform-origin: 70% 80%;
+}
+
+/* Greeting */
+.greeting {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.5px;
+  line-height: 1.2;
+  margin-bottom: 10px;
+}
+.name { color: var(--brand-500); }
+
+/* Subtitle */
+.subtitle {
+  font-size: 15px;
+  color: var(--text-secondary);
+  margin-bottom: 36px;
+  line-height: 1.5;
+}
+
+/* Loading dots */
+.status-row { margin-bottom: 24px; }
+.loading-dots {
+  display: flex; gap: 6px; justify-content: center;
+}
+.loading-dots span {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--brand-500);
+  animation: bounce 1.2s ease-in-out infinite;
+}
+.loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+.loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes bounce {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+  40%            { transform: scale(1);   opacity: 1; }
+}
+
+/* Error */
+.error-msg {
+  font-size: 14px;
+  color: var(--status-error-fg, #B91C1C);
+  background: var(--status-error-bg, #FEE2E2);
+  padding: 12px 16px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  width: 100%;
+}
+
+/* Start button */
+.start-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 52px;
+  background: linear-gradient(135deg, var(--gradient-start, #2563EB), var(--gradient-end, #6B21A8));
+  color: #fff;
+  border-radius: 14px;
+  font-size: 16px;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.3);
+  transition: transform 150ms ease, box-shadow 150ms ease;
+}
+.start-btn:active {
+  transform: scale(0.97);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.2);
+}
 </style>

@@ -37,7 +37,32 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root { --border-subtle: rgba(255, 255, 255, 0.08); }
+  :root {
+    --border-subtle: rgba(255, 255, 255, 0.08);
+    --shadow-color: rgba(0, 0, 0, 0.2);
+    --status-success-bg: rgba(34, 197, 94, 0.15);
+    --status-success-fg: #4ADE80;
+    --status-error-bg:   rgba(239, 68, 68, 0.15);
+    --status-error-fg:   #F87171;
+    --status-warn-bg:    rgba(245, 158, 11, 0.15);
+    --status-warn-fg:    #FBBF24;
+    --gradient-start: #1E40AF;
+    --gradient-end:   #581C87;
+  }
+}
+
+/* Applied when Telegram reports dark colorScheme */
+body.theme-dark {
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --shadow-color: rgba(0, 0, 0, 0.2);
+  --status-success-bg: rgba(34, 197, 94, 0.15);
+  --status-success-fg: #4ADE80;
+  --status-error-bg:   rgba(239, 68, 68, 0.15);
+  --status-error-fg:   #F87171;
+  --status-warn-bg:    rgba(245, 158, 11, 0.15);
+  --status-warn-fg:    #FBBF24;
+  --gradient-start: #1E40AF;
+  --gradient-end:   #581C87;
 }
 
 /* Shimmer animation */

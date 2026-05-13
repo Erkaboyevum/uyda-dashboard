@@ -3,14 +3,33 @@
 </template>
 
 <script setup>
-import { onMounted } from 'vue';
+import { onMounted, onUnmounted } from 'vue';
+
+function applyTheme() {
+  const tg = window.Telegram?.WebApp;
+  if (!tg) return;
+  if (tg.colorScheme === 'dark') {
+    document.body.classList.add('theme-dark');
+  } else {
+    document.body.classList.remove('theme-dark');
+  }
+  tg.setHeaderColor?.('secondary_bg_color');
+  const bg = tg.themeParams?.bg_color;
+  if (bg) tg.setBackgroundColor?.(bg);
+}
 
 onMounted(() => {
   const tg = window.Telegram?.WebApp;
   if (tg) {
     tg.ready();
     tg.expand();
+    applyTheme();
+    tg.onEvent('themeChanged', applyTheme);
   }
+});
+
+onUnmounted(() => {
+  window.Telegram?.WebApp?.offEvent?.('themeChanged', applyTheme);
 });
 </script>
 
@@ -22,7 +41,6 @@ onMounted(() => {
   padding: 0;
   margin: 0;
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
 
 html, body, #app {
@@ -39,41 +57,23 @@ body {
   line-height: 1.5;
 }
 
-/* Prevent iOS tap flash */
 * { -webkit-tap-highlight-color: transparent; }
+::-webkit-scrollbar { display: none; }
+* { scrollbar-width: none; }
+button, input, select, textarea { font-family: var(--font); }
 
-/* Smooth scrolling */
-:root { scroll-behavior: smooth; }
-
-/* Focus ring for keyboard navigation */
 :focus-visible {
   outline: 2px solid var(--brand-500);
   outline-offset: 2px;
 }
 
-/* Scrollbar hide on WebKit */
-::-webkit-scrollbar { display: none; }
-* { scrollbar-width: none; }
-
-/* Global button reset */
-button {
-  font-family: var(--font);
-  cursor: pointer;
-}
-
-/* Global input reset */
-input, select, textarea {
-  font-family: var(--font);
-}
-
-/* Skeleton utility (global so all components can use) */
+/* Global skeleton */
 @keyframes shimmer {
   0%   { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
 .skeleton {
-  background: linear-gradient(
-    90deg,
+  background: linear-gradient(90deg,
     var(--surface-2) 0%,
     var(--surface-1) 50%,
     var(--surface-2) 100%
@@ -83,7 +83,6 @@ input, select, textarea {
   border-radius: 8px;
 }
 
-/* prefers-reduced-motion */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

@@ -1,252 +1,385 @@
 <template>
-  <div class="container mt-5">
-    <div class="card shadow-lg p-4 mx-auto" style="max-width: 600px;">
-      <h1 class="text-center mb-4">{{ t("registerTitle") }}</h1>
-
-      <!-- Profil rasmi -->
-      <div class="text-center mb-4">
-        <img :src="profileImg" alt="Profile Image" class="rounded-circle" style="width: 100px; height: 100px;" />
+  <div class="reg-page">
+    <!-- Header -->
+    <div class="reg-header">
+      <div class="reg-avatar">
+        <img v-if="profileImg" :src="profileImg" alt="avatar" class="avatar-img" />
+        <div v-else class="avatar-fallback">{{ initials }}</div>
       </div>
+      <h1 class="reg-title">{{ t('registerTitle') }}</h1>
+    </div>
 
-      <!-- Ism -->
-      <div class="mb-3">
-        <label for="fullName" class="form-label">{{ t("fullName") }}</label>
+    <!-- Form -->
+    <div class="reg-form">
+      <!-- Full name -->
+      <div class="field">
+        <label class="field-label">{{ t('fullName') }}</label>
         <input
-          type="text"
-          id="fullName"
-          class="form-control"
           v-model="fullName"
+          class="field-input"
+          type="text"
           :placeholder="t('fullNamePlaceholder')"
+          autocomplete="name"
+          @focus="haptic"
         />
       </div>
 
-      <!-- Tashkilot -->
-      <div class="mb-3">
-        <label for="organization" class="form-label">{{ t("organization") }}</label>
-        <select
-          id="organization"
-          class="form-select"
-          v-model="selectedOrganization"
-          @change="fetchSubsections"
-        >
-          <option value="" disabled>{{ t("selectOne") }}</option>
-          <option
-            v-for="org in organizations"
-            :key="org.organizationName"
-            :value="org.organizationName"
+      <!-- Organization -->
+      <div class="field">
+        <label class="field-label">{{ t('organization') }}</label>
+        <div class="select-wrap">
+          <select
+            v-model="selectedOrganization"
+            class="field-input"
+            :disabled="!organizations.length"
+            @change="onOrgChange"
           >
-            {{ org.organizationName }}
-          </option>
-        </select>
-      </div>
-
-      <!-- Bo'lim -->
-      <div class="mb-3">
-        <label for="subsection" class="form-label">{{ t("subsection") }}</label>
-        <select
-          id="subsection"
-          class="form-select"
-          v-model="selectedSubsection"
-          :disabled="!subsections.length"
-        >
-          <option value="" disabled>{{ t("selectOne") }}</option>
-          <option
-            v-for="sub in subsections"
-            :key="sub.subsectionName"
-            :value="sub.subsectionName"
-          >
-            {{ sub.subsectionName }}
-          </option>
-        </select>
-      </div>
-
-      <!-- Kassa -->
-      <div class="mb-3">
-        <label for="cashRegister" class="form-label">{{ t("cashRegister") }}</label>
-        <select
-          id="cashRegister"
-          class="form-select"
-          v-model="selectedCashRegister"
-          :disabled="!cashRegisters.length"
-        >
-          <option value="" disabled>{{ t("selectOne") }}</option>
-          <option
-            v-for="cash in cashRegisters"
-            :key="cash.cashregisterName"
-            :value="cash.cashregisterName"
-          >
-            {{ cash.cashregisterName }}
-          </option>
-        </select>
-      </div>
-
-      <!-- Tugma -->
-      <div class="text-center mt-4">
-        <button class="btn btn-primary" @click="registerUser">
-          <i class="bi bi-check-circle m-2"></i>{{ t("submit") }}
-        </button>
-      </div>
-    </div>
-
-    <!-- Modal for success or error messages -->
-    <div v-if="showModal" class="modal fade show d-block " tabindex="-1" style="background: rgba(0, 0, 0, 0.5);">
-      <div class="modal-dialog-centered m-3">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title">{{ t("message") }}</h5>
-            <button type="button" class="btn-close" @click="closeModal"></button>
-          </div>
-          <div class="modal-body">
-            <p>{{ modalMessage }}</p>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-primary" @click="closeModal">{{ t("close") }}</button>
-          </div>
+            <option value="" disabled>{{ t('selectOne') }}</option>
+            <option v-for="org in organizations" :key="org.organizationName" :value="org.organizationName">
+              {{ org.organizationName }}
+            </option>
+          </select>
         </div>
       </div>
+
+      <!-- Subsection -->
+      <div class="field" :class="{ dimmed: !subsections.length }">
+        <label class="field-label">{{ t('subsection') }}</label>
+        <div class="select-wrap">
+          <select
+            v-model="selectedSubsection"
+            class="field-input"
+            :disabled="!subsections.length"
+          >
+            <option value="" disabled>{{ t('selectOne') }}</option>
+            <option v-for="s in subsections" :key="s.subsectionName" :value="s.subsectionName">
+              {{ s.subsectionName }}
+            </option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Cash register -->
+      <div class="field" :class="{ dimmed: !cashRegisters.length }">
+        <label class="field-label">{{ t('cashRegister') }}</label>
+        <div class="select-wrap">
+          <select
+            v-model="selectedCashRegister"
+            class="field-input"
+            :disabled="!cashRegisters.length"
+          >
+            <option value="" disabled>{{ t('selectOne') }}</option>
+            <option v-for="c in cashRegisters" :key="c.cashregisterName" :value="c.cashregisterName">
+              {{ c.cashregisterName }}
+            </option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Submit button (fallback if no Telegram MainButton) -->
+      <button
+        v-if="!hasTgMainButton"
+        class="submit-btn"
+        :disabled="submitting"
+        @click="registerUser"
+      >
+        <span v-if="submitting" class="spinner" />
+        {{ submitting ? t('submitting') : t('submit') }}
+      </button>
     </div>
+
+    <!-- Error toast -->
+    <Transition name="toast">
+      <div v-if="toast.show" class="toast" :class="toast.type">
+        {{ toast.message }}
+      </div>
+    </Transition>
   </div>
 </template>
 
 <script>
-import axios from "axios";
-import apiLink from "@/config/api";
-import { useI18n } from "vue-i18n";
+import axios from 'axios';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { useRouter } from 'vue-router';
+import { useI18n } from 'vue-i18n';
+import apiLink from '@/config/api';
 
 export default {
+  name: 'RegisterView',
   setup() {
-    const { t } = useI18n();
-    return {
-      t,
-    };
-  },
-  data() {
-    return {
-      fullName: "",
-      profileImg: "./assets/img/profile.jpg", // Default avatar
-      organizations: [],
-      selectedOrganization: "",
-      subsections: [],
-      selectedSubsection: "",
-      cashRegisters: [],
-      selectedCashRegister: "",
-      showModal: false,
-      modalMessage: "",
-    };
-  },
-  mounted() {
-    if (window.Telegram && window.Telegram.WebApp) {
-      window.Telegram.WebApp.ready();
+    const { t }  = useI18n();
+    const router = useRouter();
 
-      const user = window.Telegram.WebApp.initDataUnsafe.user;
-      if (user) {
-        this.fullName = user.first_name + " " + user.first_name|| "";
-        this.profileImg = user.photo_url || "./assets/img/profile.jpg";
-      }
+    const fullName              = ref('');
+    const profileImg            = ref('');
+    const selectedOrganization  = ref('');
+    const selectedSubsection    = ref('');
+    const selectedCashRegister  = ref('');
+    const organizations         = ref([]);
+    const subsections           = ref([]);
+    const cashRegisters         = ref([]);
+    const submitting            = ref(false);
+
+    const hasTgMainButton = ref(!!window.Telegram?.WebApp?.MainButton);
+
+    const toast = ref({ show: false, message: '', type: 'success' });
+
+    const initials = computed(() => {
+      const n = fullName.value || '';
+      const p = n.trim().split(/\s+/);
+      if (!p[0]) return '?';
+      return p.length > 1 ? (p[0][0] + p[1][0]).toUpperCase() : p[0][0].toUpperCase();
+    });
+
+    function showToast(message, type = 'error') {
+      toast.value = { show: true, message, type };
+      setTimeout(() => { toast.value.show = false; }, 3000);
     }
 
-    this.fetchOrganizations();
-    this.fetchCashRegisters();
-  },
-  methods: {
-    async fetchOrganizations() {
+    function haptic() {
+      window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
+    }
+
+    const getHeaders = () => ({
+      Authorization: 'Basic ' + btoa('admin:57325732'),
+      'Content-Type': 'application/json',
+      'ngrok-skip-browser-warning': 'true',
+    });
+
+    const fetchOrganizations = async () => {
       try {
-        const response = await axios.get(`${apiLink}/organization`, {
-          headers: this.getHeaders(),
-        });
-        this.organizations = response.data.data;
-      } catch (error) {
-        console.error("Tashkilotlarni olishda xatolik:", error);
-      }
-    },
-    async fetchCashRegisters() {
+        const res = await axios.get(`${apiLink}/organization`, { headers: getHeaders() });
+        organizations.value = res.data.data;
+      } catch { /* silent */ }
+    };
+
+    const fetchCashRegisters = async () => {
       try {
-        const response = await axios.get(`${apiLink}/cashregister`, {
-          headers: this.getHeaders(),
-        });
-        this.cashRegisters = response.data.data;
-      } catch (error) {
-        console.error("Kassalarni olishda xatolik:", error);
-      }
-    },
-    async fetchSubsections() {
-      if (!this.selectedOrganization) return;
+        const res = await axios.get(`${apiLink}/cashregister`, { headers: getHeaders() });
+        cashRegisters.value = res.data.data;
+      } catch { /* silent */ }
+    };
+
+    const fetchSubsections = async (org) => {
+      if (!org) return;
       try {
-        const response = await axios.get(`${apiLink}/subsection`, {
-          params: { organizationName: this.selectedOrganization.trim() },
-          headers: this.getHeaders(),
-          paramsSerializer: (params) => {
-            return new URLSearchParams(params).toString().replace(/\+/g, "%20"); // "+" → "%20"
-          },
+        const res = await axios.get(`${apiLink}/subsection`, {
+          params: { organizationName: org.trim() },
+          headers: getHeaders(),
+          paramsSerializer: (p) => new URLSearchParams(p).toString().replace(/\+/g, '%20'),
         });
-        this.subsections = response.data.data;
-      } catch (error) {
-        console.error("Bo'limlarni olishda xatolik:", error);
+        subsections.value = res.data.data;
+      } catch { subsections.value = []; }
+    };
+
+    function onOrgChange() {
+      selectedSubsection.value = '';
+      fetchSubsections(selectedOrganization.value);
+    }
+
+    const registerUser = async () => {
+      if (submitting.value) return;
+      window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('medium');
+      submitting.value = true;
+
+      const tg = window.Telegram?.WebApp;
+      if (tg?.MainButton) {
+        tg.MainButton.setText(t('submitting'));
+        tg.MainButton.showProgress(false);
       }
-    },
-    async registerUser() {
+
       try {
-        const chatId = window.Telegram.WebApp?.initDataUnsafe?.user?.id;
-        const payload = {
-          chatId: chatId,
-          fullName: this.fullName,
-          organization: this.selectedOrganization || "",
-          subsection: this.selectedSubsection || "",
-          cashRegister: this.selectedCashRegister || "",
-        };
-        await axios.post(`${apiLink}/user`, payload, {
-          headers: this.getHeaders(),
-        });
-        this.modalMessage = "Ma'lumotlar muvaffaqiyatli jo'natildi.";
-        this.showModal = true;
-      } catch (error) {
-        this.modalMessage = "Xatolik yuz berdi.";
-        this.showModal = true;
-        console.error("Ro'yxatdan o'tishda xatolik:", error);
+        const chatId = tg?.initDataUnsafe?.user?.id;
+        await axios.post(`${apiLink}/user`, {
+          chatId,
+          fullName:      fullName.value,
+          organization:  selectedOrganization.value,
+          subsection:    selectedSubsection.value,
+          cashRegister:  selectedCashRegister.value,
+        }, { headers: getHeaders() });
+
+        window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success');
+        router.push('/sent');
+      } catch {
+        window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error');
+        showToast(t('errorMessage'), 'error');
+        if (tg?.MainButton) {
+          tg.MainButton.setText(t('submit'));
+          tg.MainButton.hideProgress();
+        }
+      } finally {
+        submitting.value = false;
       }
-    },
-    closeModal() {
-      this.showModal = false;
-      if (this.modalMessage === "Ma'lumotlar muvaffaqiyatli jo'natildi.") {
-        this.$router.push("/sent");
+    };
+
+    onMounted(() => {
+      const tg = window.Telegram?.WebApp;
+      if (tg?.initDataUnsafe?.user) {
+        const user = tg.initDataUnsafe.user;
+        fullName.value  = (user.first_name || '') + (user.last_name ? ' ' + user.last_name : '');
+        profileImg.value = user.photo_url || '';
       }
-    },
-    getHeaders() {
-      return {
-        Authorization: "Basic " + btoa("admin:57325732"),
-        "Content-Type": "application/json",
-        "ngrok-skip-browser-warning": "true",
-      };
-    },
+
+      fetchOrganizations();
+      fetchCashRegisters();
+
+      // Setup Telegram MainButton
+      if (tg?.MainButton) {
+        tg.MainButton.setText(t('submit'));
+        tg.MainButton.show();
+        tg.MainButton.onClick(registerUser);
+      }
+
+      // BackButton
+      if (tg?.BackButton) {
+        tg.BackButton.show();
+        tg.BackButton.onClick(() => router.push('/'));
+      }
+    });
+
+    onUnmounted(() => {
+      const tg = window.Telegram?.WebApp;
+      tg?.MainButton?.hide();
+      tg?.MainButton?.offClick(registerUser);
+      tg?.BackButton?.hide();
+    });
+
+    return {
+      t, fullName, profileImg, initials,
+      selectedOrganization, selectedSubsection, selectedCashRegister,
+      organizations, subsections, cashRegisters,
+      submitting, hasTgMainButton, toast, haptic, onOrgChange, registerUser,
+    };
   },
 };
 </script>
 
 <style scoped>
-.card {
-  border-radius: 10px;
+.reg-page {
+  min-height: 100dvh;
+  background: var(--surface-1);
+  padding: 32px 20px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }
 
-.modal-content {
-  border-radius: 10px;
+/* Header */
+.reg-header { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+
+.reg-avatar { position: relative; }
+.avatar-img {
+  width: 72px; height: 72px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid var(--surface-2);
+}
+.avatar-fallback {
+  width: 72px; height: 72px;
+  border-radius: 50%;
+  background: #16A34A;
+  color: #fff;
+  font-size: 24px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
 }
 
-.modal-header {
-  background-color: #007bff;
-  color: white;
+.reg-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.3px;
 }
 
-.modal-footer {
-  justify-content: center;
+/* Form */
+.reg-form { display: flex; flex-direction: column; gap: 16px; }
+
+.field { display: flex; flex-direction: column; gap: 6px; }
+
+.field-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
-.btn-primary {
-  background-color: #007bff;
-  border-color: #007bff;
+.select-wrap { position: relative; }
+.select-wrap::after {
+  content: '▾';
+  position: absolute;
+  right: 16px; top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: var(--text-secondary);
+  font-size: 14px;
 }
 
-.btn-primary:hover {
-  background-color: #0056b3;
-  border-color: #004085;
+.field-input {
+  width: 100%;
+  height: 52px;
+  border-radius: 12px;
+  border: 1.5px solid transparent;
+  background: var(--surface-2);
+  color: var(--text-primary);
+  padding: 0 16px;
+  font-size: 16px;
+  font-family: var(--font);
+  appearance: none;
+  -webkit-appearance: none;
+  outline: none;
+  transition: border-color 150ms ease, background 150ms ease;
 }
+.field-input:focus {
+  border-color: var(--brand-500);
+  background: var(--surface-1);
+}
+.field-input:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.dimmed { opacity: 0.6; }
+
+/* Submit */
+.submit-btn {
+  margin-top: 8px;
+  height: 52px;
+  border-radius: 14px;
+  border: none;
+  background: linear-gradient(135deg, var(--gradient-start, #2563EB), var(--gradient-end, #6B21A8));
+  color: #fff;
+  font-size: 16px; font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.3);
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  transition: transform 150ms ease;
+}
+.submit-btn:active:not(:disabled) { transform: scale(0.97); }
+.submit-btn:disabled { opacity: 0.6; cursor: default; }
+
+.spinner {
+  width: 18px; height: 18px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Toast */
+.toast {
+  position: fixed;
+  top: 16px; left: 16px; right: 16px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  font-size: 14px; font-weight: 600;
+  text-align: center;
+  z-index: 300;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+}
+.toast.error   { background: var(--status-error-bg, #FEE2E2);   color: var(--status-error-fg, #B91C1C); }
+.toast.success { background: var(--status-success-bg, #DCFCE7); color: var(--status-success-fg, #15803D); }
+
+.toast-enter-active, .toast-leave-active { transition: opacity 250ms, transform 250ms; }
+.toast-enter-from, .toast-leave-to { opacity: 0; transform: translateY(-12px); }
 </style>

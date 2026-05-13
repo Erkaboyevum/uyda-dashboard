@@ -1,47 +1,42 @@
-import { createI18n } from "vue-i18n"; // Nomlangan eksport sifatida import qilish
-import uzbekCyrillic from "./locales/uzbek-crylic";
-import russian from "./locales/russian";
-import axios from "axios";
-import apiLink  from "@/config/api"
+import { createI18n } from 'vue-i18n';
+import uzbekCyrillic from './locales/uzbek-crylic';
+import russian from './locales/russian';
+import axios from 'axios';
+import apiLink from '@/config/api';
 
-//User APIdan kelgan tilni olish
-const fetchLang= async () => {
-  try {
-    const response = await axios.get(`${apiLink}/user?chatId=${window.Telegram.WebApp.initDataUnsafe.user.id}`, {
-      headers: {
-        "Authorization": "Basic " + btoa("admin:57325732"),
-        "Content-Type": "application/json",
-        "ngrok-skip-browser-warning": "true"
-      }
-    });
-    const language = response.data.data.language;
-    return language;
-  } catch (error) {
-    console.error("Error fetching user language:", error);
-    // Agar xato bo'lsa, default tilni o'rnatish
-    const language = "uzbek-crylic"; // Default til
-    return language;
-  }
-}
+const LANG_KEY = 'uyda_lang';
 
-const messages = {
-  "uzbek-crylic": uzbekCyrillic,
-  "russian": russian,
-};
+const savedLang = localStorage.getItem(LANG_KEY) || 'uzbek-crylic';
 
 const i18n = createI18n({
-  legacy: false, // Composition API bilan ishlash uchun
-  locale: 'uzbek-crylic', // Default til
-  fallbackLocale: "russian", // Agar til topilmasa
-  messages,
+  legacy: false,
+  locale: savedLang,
+  fallbackLocale: 'russian',
+  messages: {
+    'uzbek-crylic': uzbekCyrillic,
+    russian,
+  },
 });
 
-if (typeof window !== 'undefined' && window.Telegram && window.Telegram.WebApp) {
-    fetchLang().then(lang => {
-        if (lang) {
-            i18n.global.locale.value = lang;
-        }
-    });
+// Fetch lang from API and update (non-blocking)
+if (typeof window !== 'undefined' && window.Telegram?.WebApp?.initDataUnsafe?.user) {
+  axios
+    .get(`${apiLink}/user?chatId=${window.Telegram.WebApp.initDataUnsafe.user.id}`, {
+      headers: {
+        Authorization: 'Basic ' + btoa('admin:57325732'),
+        'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true',
+      },
+    })
+    .then(res => {
+      const lang = res.data?.data?.language;
+      if (lang === 'uzbek-crylic' || lang === 'russian') {
+        i18n.global.locale.value = lang;
+        localStorage.setItem(LANG_KEY, lang);
+      }
+    })
+    .catch(() => {});
 }
 
 export default i18n;
+export const LANG_STORAGE_KEY = LANG_KEY;
