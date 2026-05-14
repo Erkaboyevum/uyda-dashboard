@@ -20,7 +20,7 @@
         :loading="loading"
         :cancel-reasons="cancelReasons"
         :order-types="orderTypes"
-        @apply="handleApply"
+        @apply="applyFilters"
         @reset="resetFilters"
       />
 
@@ -91,14 +91,10 @@ const activeTab = ref('charts');
 
 const {
   data, loading, loadingMore, error, hasMore,
-  pendingFilters, cancelReasons, orderTypes,
+  cancelReasons, orderTypes,
   applyFilters, resetFilters, refetch, loadMore,
 } = useOrderAnalysis();
 
-function handleApply(filters) {
-  pendingFilters.value = filters;
-  applyFilters();
-}
 </script>
 
 <style scoped>

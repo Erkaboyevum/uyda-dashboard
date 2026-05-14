@@ -79,8 +79,8 @@ export function useOrderAnalysis() {
     }
   }
 
-  function applyFilters() {
-    appliedFilters.value = { ...pendingFilters.value };
+  function applyFilters(filters) {
+    appliedFilters.value = { ...filters };
     fetchData(appliedFilters.value, true);
   }
 

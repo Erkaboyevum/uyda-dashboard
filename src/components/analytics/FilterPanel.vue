@@ -9,11 +9,11 @@
       <div class="date-grid">
         <div>
           <label class="field-label">С</label>
-          <input type="date" class="field-input" v-model.lazy="localDateFrom" />
+          <input type="date" class="field-input" :value="localDateFrom" @change="onDateFromChange" />
         </div>
         <div>
           <label class="field-label">По</label>
-          <input type="date" class="field-input" v-model.lazy="localDateTo" />
+          <input type="date" class="field-input" :value="localDateTo" @change="onDateToChange" />
         </div>
       </div>
 
@@ -76,6 +76,14 @@ const localDateTo = ref(defaultDateTo());
 const localStatus = ref('');
 const localReasonCancel = ref('');
 const localOrderType = ref('');
+
+function onDateFromChange(e) {
+  localDateFrom.value = e.target.value;
+}
+
+function onDateToChange(e) {
+  localDateTo.value = e.target.value;
+}
 
 function handleApply() {
   emit('apply', {
