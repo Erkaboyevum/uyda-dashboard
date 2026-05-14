@@ -17,12 +17,10 @@
     <!-- CHARTS TAB -->
     <div v-show="activeTab === 'charts'">
       <FilterPanel
-        :filters="pendingFilters"
         :loading="loading"
         :cancel-reasons="cancelReasons"
         :order-types="orderTypes"
-        @update:filters="updateFilters"
-        @apply="applyFilters"
+        @apply="handleApply"
         @reset="resetFilters"
       />
 
@@ -97,8 +95,9 @@ const {
   applyFilters, resetFilters, refetch, loadMore,
 } = useOrderAnalysis();
 
-function updateFilters(v) {
-  pendingFilters.value = v;
+function handleApply(filters) {
+  pendingFilters.value = filters;
+  applyFilters();
 }
 </script>
 

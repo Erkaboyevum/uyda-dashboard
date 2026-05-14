@@ -9,39 +9,34 @@
       <div class="date-grid">
         <div>
           <label class="field-label">С</label>
-          <input type="date" class="field-input" :value="filters.dateFrom"
-            @change="e => set('dateFrom', e.target.value)" />
+          <input type="date" class="field-input" v-model="localDateFrom" />
         </div>
         <div>
           <label class="field-label">По</label>
-          <input type="date" class="field-input" :value="filters.dateTo"
-            @change="e => set('dateTo', e.target.value)" />
+          <input type="date" class="field-input" v-model="localDateTo" />
         </div>
       </div>
 
-      <select class="field-input" :value="filters.status"
-        @change="e => set('status', e.target.value)">
+      <select class="field-input" v-model="localStatus">
         <option value="">Все</option>
         <option value="completed">Успешно</option>
         <option value="cancelled">Отменен</option>
         <option value="open">Открыт</option>
       </select>
 
-      <select v-if="cancelReasons.length" class="field-input" :value="filters.reasonCancel"
-        @change="e => set('reasonCancel', e.target.value)">
+      <select v-if="cancelReasons.length" class="field-input" v-model="localReasonCancel">
         <option value="">Все причины</option>
         <option v-for="r in cancelReasons" :key="r" :value="r">{{ r }}</option>
       </select>
 
-      <select v-if="orderTypes.length" class="field-input" :value="filters.orderType"
-        @change="e => set('orderType', e.target.value)">
+      <select v-if="orderTypes.length" class="field-input" v-model="localOrderType">
         <option value="">Все типы</option>
         <option v-for="t in orderTypes" :key="t" :value="t">{{ t }}</option>
       </select>
 
       <div class="btn-grid">
-        <button class="btn-reset" @click="$emit('reset')">{{ t('analytics.reset') }}</button>
-        <button class="btn-apply" :disabled="loading" @click="$emit('apply')">
+        <button class="btn-reset" @click="handleReset">{{ t('analytics.reset') }}</button>
+        <button class="btn-apply" :disabled="loading" @click="handleApply">
           {{ loading ? '...' : t('analytics.apply') }}
         </button>
       </div>
@@ -51,24 +46,54 @@
 
 <script setup>
 import { ref } from 'vue';
-
 import { useI18n } from 'vue-i18n';
 
 const { t } = useI18n();
 
 const props = defineProps({
-  filters: Object,
   loading: Boolean,
   cancelReasons: { type: Array, default: () => [] },
   orderTypes: { type: Array, default: () => [] },
 });
 
-const emit = defineEmits(['update:filters', 'apply', 'reset']);
+const emit = defineEmits(['apply', 'reset']);
 
 const expanded = ref(true);
 
-function set(key, val) {
-  emit('update:filters', { ...props.filters, [key]: val });
+function defaultDateFrom() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+}
+
+function defaultDateTo() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// Local state — initialized once on mount, never overwritten by parent re-renders
+const localDateFrom = ref(defaultDateFrom());
+const localDateTo = ref(defaultDateTo());
+const localStatus = ref('');
+const localReasonCancel = ref('');
+const localOrderType = ref('');
+
+function handleApply() {
+  emit('apply', {
+    dateFrom: localDateFrom.value,
+    dateTo: localDateTo.value,
+    status: localStatus.value,
+    reasonCancel: localReasonCancel.value,
+    orderType: localOrderType.value,
+  });
+}
+
+function handleReset() {
+  localDateFrom.value = defaultDateFrom();
+  localDateTo.value = defaultDateTo();
+  localStatus.value = '';
+  localReasonCancel.value = '';
+  localOrderType.value = '';
+  emit('reset');
 }
 </script>
 
