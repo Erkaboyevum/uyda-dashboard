@@ -9,11 +9,11 @@
       <div class="date-grid">
         <div>
           <label class="field-label">С</label>
-          <input type="date" class="field-input" v-model="localDateFrom" />
+          <input type="date" class="field-input" v-model.lazy="localDateFrom" />
         </div>
         <div>
           <label class="field-label">По</label>
-          <input type="date" class="field-input" v-model="localDateTo" />
+          <input type="date" class="field-input" v-model.lazy="localDateTo" />
         </div>
       </div>
 
