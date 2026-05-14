@@ -4,10 +4,15 @@ import { ANALYTICS_API_URL, ANALYTICS_AUTH_HEADER } from '@/config/analyticsApi'
 const LIMIT = 50;
 
 function getDefaultFilters() {
-  const today = new Date();
-  const from = new Date(today.getFullYear(), today.getMonth(), 1);
-  const fmt = d => d.toISOString().split('T')[0];
-  return { dateFrom: fmt(from), dateTo: fmt(today), status: '', reasonCancel: '', orderType: '' };
+  const d = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  return {
+    dateFrom: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-01`,
+    dateTo: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
+    status: '',
+    reasonCancel: '',
+    orderType: '',
+  };
 }
 
 // Singleton state — shared across all components that call useOrderAnalysis()
