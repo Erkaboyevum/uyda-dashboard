@@ -3,14 +3,14 @@
     <div class="chart-title">Статуслар бўйича айланма / Оборот по статусам</div>
     <div class="chart-box">
       <div class="chart-wrap">
-        <Bar :data="chartData" :options="chartOptions" />
+        <Bar :key="chartKey" :data="chartData" :options="chartOptions" />
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { Bar } from 'vue-chartjs';
 import {
   Chart as ChartJS, CategoryScale, LinearScale,
@@ -21,46 +21,56 @@ import { formatNumber, formatCompact, currencyLabel } from '@/utils/format';
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
 const props = defineProps({
-  byStatus:           { type: Array, default: () => [] },
-  totalByCurrency:    { type: Array, default: () => [] },
-  cancelledByCurrency:{ type: Array, default: () => [] },
+  byStatus:            { type: Array, default: () => [] },
+  totalByCurrency:     { type: Array, default: () => [] },
+  cancelledByCurrency: { type: Array, default: () => [] },
 });
 
-// Fixed status order — always shown, 0 if absent in current date range
 const STATUSES = [
   { key: 'Успешно', color: '#16A34A', label: 'Муваффақиятли' },
   { key: 'Отменен', color: '#DC2626', label: 'Бекор қилинган' },
   { key: 'Открыт',  color: '#F59E0B', label: 'Очиқ'          },
 ];
 
-// All currencies present in byStatus OR totalByCurrency (fallback)
 const currencies = computed(() => {
-  const fromByStatus = (props.byStatus || []).map(d => d.currency);
-  const fromTotal = (props.totalByCurrency || []).map(d => d.currency);
-  return [...new Set([...fromByStatus, ...fromTotal])];
+  const a = (props.byStatus || []).map(d => d.currency);
+  const b = (props.totalByCurrency || []).map(d => d.currency);
+  return [...new Set([...a, ...b])];
 });
 
-const amountMap = computed(() => {
-  const map = {};
-  (props.byStatus || []).forEach(({ status, currency, amount }) => {
-    map[`${currency}__${status}`] = amount;
-  });
-  return map;
-});
+// ref + watch pattern so vue-chartjs properly detects updates
+const chartData = ref({ labels: [], datasets: [] });
 
-const chartData = computed(() => ({
-  labels: currencies.value.map(c => currencyLabel(c)),
-  datasets: STATUSES.map(({ key, color, label }) => ({
-    label,
-    data: currencies.value.map(c => amountMap.value[`${c}__${key}`] ?? 0),
-    backgroundColor: color,
-    borderRadius: 0,
-  })),
-}));
+watch(
+  [() => props.byStatus, () => props.totalByCurrency],
+  () => {
+    const currs = currencies.value;
+    const map = {};
+    (props.byStatus || []).forEach(({ status, currency, amount }) => {
+      map[`${currency}__${status}`] = amount;
+    });
+    chartData.value = {
+      labels: currs.map(c => currencyLabel(c)),
+      datasets: STATUSES.map(({ key, color, label }) => ({
+        label,
+        data: currs.map(c => map[`${c}__${key}`] ?? 0),
+        backgroundColor: color,
+        borderRadius: 0,
+      })),
+    };
+  },
+  { immediate: true, deep: true },
+);
+
+// Force chart re-mount when byStatus contents change
+const chartKey = computed(() =>
+  (props.byStatus || []).map(d => `${d.status}:${d.amount}`).join('|') || 'empty',
+);
 
 const chartOptions = {
   responsive: true,
   maintainAspectRatio: false,
+  animation: false,
   plugins: {
     legend: { position: 'bottom', labels: { boxWidth: 10, padding: 12, font: { size: 12 } } },
     tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${formatNumber(ctx.parsed.y)}` } },
