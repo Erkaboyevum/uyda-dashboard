@@ -1,5 +1,5 @@
 <template>
-  <div v-if="chartData.labels.length" style="padding:0 16px 16px">
+  <div v-if="effectiveData.length" style="padding:0 16px 16px">
     <div class="chart-title">Статуслар бўйича айланма / Оборот по статусам</div>
     <div class="chart-box">
       <Bar :data="chartData" :options="chartOptions" style="max-height:220px" />
@@ -18,31 +18,54 @@ import { formatNumber, formatCompact, currencyLabel } from '@/utils/format';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
-const props = defineProps({ byStatus: Array });
+const props = defineProps({
+  byStatus:           { type: Array, default: () => [] },
+  totalByCurrency:    { type: Array, default: () => [] },
+  cancelledByCurrency:{ type: Array, default: () => [] },
+});
 
 const STATUS_COLORS = {
   'Успешно': '#16A34A',
   'Отменен': '#DC2626',
   'Открыт':  '#F59E0B',
+  'Всего':   '#6B7280',
 };
 
 const STATUS_LABELS = {
   'Успешно': 'Муваффақиятли',
   'Отменен': 'Бекор қилинган',
   'Открыт':  'Очиқ',
+  'Всего':   'Жами',
 };
 
+// Use byStatus if it has data; otherwise derive 2-bar fallback from totalByCurrency
+const effectiveData = computed(() => {
+  const bs = props.byStatus || [];
+  if (bs.length > 0) return bs;
+
+  // Fallback: build from totalByCurrency + cancelledByCurrency
+  const result = [];
+  for (const t of (props.totalByCurrency || [])) {
+    result.push({ status: 'Всего', currency: t.currency, count: t.count, amount: t.amount });
+    const cancelled = (props.cancelledByCurrency || []).find(c => c.currency === t.currency);
+    if (cancelled && cancelled.amount > 0) {
+      result.push({ status: 'Отменен', currency: t.currency, count: cancelled.count, amount: cancelled.amount });
+    }
+  }
+  return result;
+});
+
 const currencies = computed(() => [
-  ...new Set((props.byStatus || []).map(d => d.currency)),
+  ...new Set(effectiveData.value.map(d => d.currency)),
 ]);
 
 const statuses = computed(() => [
-  ...new Set((props.byStatus || []).map(d => d.status)),
+  ...new Set(effectiveData.value.map(d => d.status)),
 ]);
 
 const amountMap = computed(() => {
   const map = {};
-  (props.byStatus || []).forEach(({ status, currency, amount }) => {
+  effectiveData.value.forEach(({ status, currency, amount }) => {
     map[`${currency}__${status}`] = amount;
   });
   return map;
