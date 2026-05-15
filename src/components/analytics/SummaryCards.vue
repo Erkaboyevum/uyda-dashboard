@@ -10,7 +10,7 @@
     </div>
     <div class="summary-card" :style="{ borderLeft: `3px solid ${rateColor}` }">
       <div class="card-label">Cancel rate</div>
-      <div class="card-value" :style="{ color: rateColor }">{{ summary.cancelRate.toFixed(1) }}%</div>
+      <div class="card-value" :style="{ color: rateColor }">{{ (summary.cancelRate ?? 0).toFixed(1) }}%</div>
     </div>
     <div
       v-for="c in summary.totalByCurrency"
@@ -34,16 +34,16 @@ import { formatNumber, currencyLabel } from '@/utils/format';
 const props = defineProps({ summary: Object });
 
 const cancelCount = computed(() =>
-  props.summary.cancelledByCurrency.reduce((s, c) => s + c.count, 0)
+  (props.summary.cancelledByCurrency || []).reduce((s, c) => s + c.count, 0)
 );
 
 const rateColor = computed(() => {
-  const r = props.summary.cancelRate;
+  const r = props.summary.cancelRate ?? 0;
   return r > 20 ? '#FF3B30' : r > 10 ? '#FF9500' : '#34C759';
 });
 
 function cancelledFor(currency) {
-  return props.summary.cancelledByCurrency.find(x => x.currency === currency);
+  return (props.summary.cancelledByCurrency || []).find(x => x.currency === currency);
 }
 </script>
 

@@ -14,7 +14,7 @@ import {
   Chart as ChartJS, CategoryScale, LinearScale,
   BarElement, Tooltip, Legend,
 } from 'chart.js';
-import { formatNumber, formatCompact } from '@/utils/format';
+import { formatNumber, formatCompact, currencyLabel } from '@/utils/format';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
@@ -49,7 +49,7 @@ const amountMap = computed(() => {
 });
 
 const chartData = computed(() => ({
-  labels: currencies.value,
+  labels: currencies.value.map(c => currencyLabel(c)),
   datasets: statuses.value.map(status => ({
     label: STATUS_LABELS[status] || status,
     data: currencies.value.map(c => amountMap.value[`${c}__${status}`] ?? 0),

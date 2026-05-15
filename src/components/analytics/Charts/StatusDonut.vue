@@ -15,11 +15,11 @@ import { getStatusBg } from '@/utils/statusColor';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
-const props = defineProps({ byStatus: Array });
+const props = defineProps({ byStatus: { type: Array, default: () => [] } });
 
 const aggregated = computed(() => {
   const map = {};
-  for (const s of props.byStatus) {
+  for (const s of (props.byStatus || [])) {
     map[s.status] = (map[s.status] || 0) + s.count;
   }
   return Object.entries(map).map(([name, value]) => ({ name, value }));

@@ -24,16 +24,16 @@ const STATUSES = [
   { key: 'Открыт',  color: '#F59E0B' },
 ];
 
-const props = defineProps({ byStatus: Array });
+const props = defineProps({ byStatus: { type: Array, default: () => [] } });
 
-const currencies = computed(() => [...new Set(props.byStatus.map(s => s.currency))]);
+const currencies = computed(() => [...new Set((props.byStatus || []).map(s => s.currency))]);
 
 const chartData = computed(() => ({
   labels: currencies.value.map(c => currencyLabel(c)),
   datasets: STATUSES.map(({ key, color }) => ({
     label: key,
     data: currencies.value.map(cur => {
-      const found = props.byStatus.find(s => s.currency === cur && s.status === key);
+      const found = (props.byStatus || []).find(s => s.currency === cur && s.status === key);
       return found?.count ?? 0;
     }),
     backgroundColor: color,

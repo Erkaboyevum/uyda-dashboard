@@ -64,9 +64,18 @@ export function useOrderAnalysis() {
       cancelReasons.value = [...new Set([...cancelReasons.value, ...newReasons])];
       orderTypes.value = [...new Set([...orderTypes.value, ...newTypes])];
 
+      const summary = {
+        totalOrders: 0,
+        cancelRate: 0,
+        totalByCurrency: [],
+        cancelledByCurrency: [],
+        byStatus: [],
+        ...payload.summary,
+      };
+
       if (reset) {
         offset = payload.items.length;
-        data.value = { summary: payload.summary, items: payload.items };
+        data.value = { summary, items: payload.items };
       } else {
         offset += payload.items.length;
         if (data.value) data.value.items = [...data.value.items, ...payload.items];
