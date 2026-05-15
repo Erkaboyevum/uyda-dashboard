@@ -1,8 +1,8 @@
 <template>
   <div v-if="chartData.labels.length" style="padding:0 16px 16px">
-    <div class="chart-title">Сумма по валютам</div>
+    <div class="chart-title">Статуслар бўйича айланма / Оборот по статусам</div>
     <div class="chart-box">
-      <Bar :data="chartData" :options="chartOptions" style="max-height:200px" />
+      <Bar :data="chartData" :options="chartOptions" style="max-height:220px" />
     </div>
   </div>
 </template>
@@ -14,35 +14,48 @@ import {
   Chart as ChartJS, CategoryScale, LinearScale,
   BarElement, Tooltip, Legend,
 } from 'chart.js';
-import { currencyLabel, formatNumber, formatCompact } from '@/utils/format';
+import { formatNumber, formatCompact } from '@/utils/format';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
-const props = defineProps({ totalByCurrency: Array, cancelledByCurrency: Array });
+const props = defineProps({ byStatus: Array });
+
+const STATUS_COLORS = {
+  'Успешно': '#16A34A',
+  'Отменен': '#DC2626',
+  'Открыт':  '#F59E0B',
+};
+
+const STATUS_LABELS = {
+  'Успешно': 'Муваффақиятли',
+  'Отменен': 'Бекор қилинган',
+  'Открыт':  'Очиқ',
+};
 
 const currencies = computed(() => [
-  ...new Set([
-    ...props.totalByCurrency.map(c => c.currency),
-    ...props.cancelledByCurrency.map(c => c.currency),
-  ]),
+  ...new Set((props.byStatus || []).map(d => d.currency)),
 ]);
 
+const statuses = computed(() => [
+  ...new Set((props.byStatus || []).map(d => d.status)),
+]);
+
+const amountMap = computed(() => {
+  const map = {};
+  (props.byStatus || []).forEach(({ status, currency, amount }) => {
+    map[`${currency}__${status}`] = amount;
+  });
+  return map;
+});
+
 const chartData = computed(() => ({
-  labels: currencies.value.map(c => currencyLabel(c)),
-  datasets: [
-    {
-      label: 'Всего',
-      data: currencies.value.map(c => props.totalByCurrency.find(x => x.currency === c)?.amount ?? 0),
-      backgroundColor: 'var(--tg-theme-button-color, #007AFF)',
-      borderRadius: 4,
-    },
-    {
-      label: 'Отменено',
-      data: currencies.value.map(c => props.cancelledByCurrency.find(x => x.currency === c)?.amount ?? 0),
-      backgroundColor: '#FF3B30',
-      borderRadius: 4,
-    },
-  ],
+  labels: currencies.value,
+  datasets: statuses.value.map(status => ({
+    label: STATUS_LABELS[status] || status,
+    data: currencies.value.map(c => amountMap.value[`${c}__${status}`] ?? 0),
+    backgroundColor: STATUS_COLORS[status] || '#8E8E93',
+    borderRadius: 4,
+  })),
 }));
 
 const chartOptions = {

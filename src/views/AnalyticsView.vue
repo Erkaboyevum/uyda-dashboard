@@ -45,10 +45,7 @@
       <div v-if="data" :style="{ opacity: loading ? 0.6 : 1, transition: 'opacity 0.2s' }">
         <SummaryCards :summary="data.summary" />
         <StatusDonut :by-status="data.summary.byStatus" />
-        <CurrencyBarChart
-          :total-by-currency="data.summary.totalByCurrency"
-          :cancelled-by-currency="data.summary.cancelledByCurrency"
-        />
+        <CurrencyBarChart :by-status="data.summary.byStatus" />
         <StackedStatusByCurrency :by-status="data.summary.byStatus" />
       </div>
     </div>
