@@ -2,7 +2,9 @@
   <div v-if="currencies.length" style="padding:0 16px 16px">
     <div class="chart-title">Статуслар бўйича айланма / Оборот по статусам</div>
     <div class="chart-box">
-      <Bar :data="chartData" :options="chartOptions" style="max-height:220px" />
+      <div class="chart-wrap">
+        <Bar :data="chartData" :options="chartOptions" />
+      </div>
     </div>
   </div>
 </template>
@@ -52,13 +54,13 @@ const chartData = computed(() => ({
     label,
     data: currencies.value.map(c => amountMap.value[`${c}__${key}`] ?? 0),
     backgroundColor: color,
-    borderRadius: 4,
+    borderRadius: 0,
   })),
 }));
 
 const chartOptions = {
   responsive: true,
-  maintainAspectRatio: true,
+  maintainAspectRatio: false,
   plugins: {
     legend: { position: 'bottom', labels: { boxWidth: 10, padding: 12, font: { size: 12 } } },
     tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${formatNumber(ctx.parsed.y)}` } },
@@ -76,4 +78,5 @@ const chartOptions = {
 <style scoped>
 .chart-title { font-size:13px; font-weight:600; color:var(--tg-theme-text-color,#000); margin-bottom:8px; }
 .chart-box { background:var(--tg-theme-secondary-bg-color,#f5f5f5); border-radius:14px; padding:16px; }
+.chart-wrap { position:relative; height:180px; }
 </style>
