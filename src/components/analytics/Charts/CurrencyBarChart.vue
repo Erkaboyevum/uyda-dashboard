@@ -1,5 +1,5 @@
 <template>
-  <div v-if="effectiveData.length" style="padding:0 16px 16px">
+  <div v-if="currencies.length" style="padding:0 16px 16px">
     <div class="chart-title">Статуслар бўйича айланма / Оборот по статусам</div>
     <div class="chart-box">
       <Bar :data="chartData" :options="chartOptions" style="max-height:220px" />
@@ -24,48 +24,23 @@ const props = defineProps({
   cancelledByCurrency:{ type: Array, default: () => [] },
 });
 
-const STATUS_COLORS = {
-  'Успешно': '#16A34A',
-  'Отменен': '#DC2626',
-  'Открыт':  '#F59E0B',
-  'Всего':   '#6B7280',
-};
+// Fixed status order — always shown, 0 if absent in current date range
+const STATUSES = [
+  { key: 'Успешно', color: '#16A34A', label: 'Муваффақиятли' },
+  { key: 'Отменен', color: '#DC2626', label: 'Бекор қилинган' },
+  { key: 'Открыт',  color: '#F59E0B', label: 'Очиқ'          },
+];
 
-const STATUS_LABELS = {
-  'Успешно': 'Муваффақиятли',
-  'Отменен': 'Бекор қилинган',
-  'Открыт':  'Очиқ',
-  'Всего':   'Жами',
-};
-
-// Use byStatus if it has data; otherwise derive 2-bar fallback from totalByCurrency
-const effectiveData = computed(() => {
-  const bs = props.byStatus || [];
-  if (bs.length > 0) return bs;
-
-  // Fallback: build from totalByCurrency + cancelledByCurrency
-  const result = [];
-  for (const t of (props.totalByCurrency || [])) {
-    result.push({ status: 'Всего', currency: t.currency, count: t.count, amount: t.amount });
-    const cancelled = (props.cancelledByCurrency || []).find(c => c.currency === t.currency);
-    if (cancelled && cancelled.amount > 0) {
-      result.push({ status: 'Отменен', currency: t.currency, count: cancelled.count, amount: cancelled.amount });
-    }
-  }
-  return result;
+// All currencies present in byStatus OR totalByCurrency (fallback)
+const currencies = computed(() => {
+  const fromByStatus = (props.byStatus || []).map(d => d.currency);
+  const fromTotal = (props.totalByCurrency || []).map(d => d.currency);
+  return [...new Set([...fromByStatus, ...fromTotal])];
 });
-
-const currencies = computed(() => [
-  ...new Set(effectiveData.value.map(d => d.currency)),
-]);
-
-const statuses = computed(() => [
-  ...new Set(effectiveData.value.map(d => d.status)),
-]);
 
 const amountMap = computed(() => {
   const map = {};
-  effectiveData.value.forEach(({ status, currency, amount }) => {
+  (props.byStatus || []).forEach(({ status, currency, amount }) => {
     map[`${currency}__${status}`] = amount;
   });
   return map;
@@ -73,10 +48,10 @@ const amountMap = computed(() => {
 
 const chartData = computed(() => ({
   labels: currencies.value.map(c => currencyLabel(c)),
-  datasets: statuses.value.map(status => ({
-    label: STATUS_LABELS[status] || status,
-    data: currencies.value.map(c => amountMap.value[`${c}__${status}`] ?? 0),
-    backgroundColor: STATUS_COLORS[status] || '#8E8E93',
+  datasets: STATUSES.map(({ key, color, label }) => ({
+    label,
+    data: currencies.value.map(c => amountMap.value[`${c}__${key}`] ?? 0),
+    backgroundColor: color,
     borderRadius: 4,
   })),
 }));
