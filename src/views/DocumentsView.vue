@@ -65,7 +65,6 @@
     <div v-if="!loading && !errorMessage && documents.length === 0" class="empty-state">
       <div class="empty-icon">📭</div>
       <div class="empty-msg">{{ t('documentsNotFound') }}</div>
-      <div class="empty-hint">{{ t('addDocumentHint') }}</div>
     </div>
 
     <div class="bottom-space" />
@@ -336,8 +335,7 @@ export default {
 /* ── Empty state ── */
 .empty-state { text-align: center; padding: 56px 16px; }
 .empty-icon  { font-size: 44px; margin-bottom: 12px; }
-.empty-msg   { font-size: 15px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; }
-.empty-hint  { font-size: 13px; color: var(--text-secondary); }
+.empty-msg   { font-size: 15px; font-weight: 600; color: var(--text-secondary); }
 
 
 .bottom-space { height: 24px; }

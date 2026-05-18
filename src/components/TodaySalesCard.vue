@@ -1,6 +1,6 @@
 <template>
   <div v-if="loading" class="today-card skeleton-shimmer" />
-  <div v-else-if="data" class="today-card" :style="cardStyle" @click="$router.push('/analytics')">
+  <div v-else-if="data" class="today-card" :style="cardStyle" @click="$router.push('/app/savdo')">
     <div class="card-label">{{ t('analytics.todaySales') }}</div>
     <div class="card-stats">
       <span class="stat-main">{{ data.totalOrders }} {{ t('analytics.totalOrders') }}</span>
