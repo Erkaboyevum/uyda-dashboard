@@ -347,12 +347,27 @@ export default {
 
         await axios.post(`${apiLink}/document`, payload, { headers: getHeaders() });
 
-        // axios throws on non-2xx — reaching here means HTTP success
+        // HTTP 2xx — success
         window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success');
         if (tg?.MainButton) { tg.MainButton.hideProgress(); tg.MainButton.hide(); }
-        successModal.value = true;
         submitting.value = false;
         resetForm();
+
+        // Native Telegram alert (guaranteed visible), fallback to custom modal
+        if (tg?.showPopup) {
+          tg.showPopup(
+            {
+              title: 'Муваффақият!',
+              message: 'Ҳужжат муваффақиятли юборилди ва тизимга сақланди.',
+              buttons: [{ id: 'ok', type: 'default', text: 'Молияга қайтиш' }],
+            },
+            () => router.push('/app/moliya'),
+          );
+        } else if (tg?.showAlert) {
+          tg.showAlert('✅ Ҳужжат муваффақиятли юборилди!', () => router.push('/app/moliya'));
+        } else {
+          successModal.value = true;
+        }
       } catch {
         window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error');
         showToast('Хатолик юз берди. Қайта уриниб кўринг.', 'error');
