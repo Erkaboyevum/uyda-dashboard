@@ -13,11 +13,6 @@
           :class="{ active: activeTab === 'orders' }"
           @click="activateTab('orders')"
         >{{ t('savdo.orders') }}</button>
-        <button
-          class="seg-btn"
-          :class="{ active: activeTab === 'feedbacks' }"
-          @click="activateTab('feedbacks')"
-        >{{ t('savdo.feedbacks') }}</button>
       </div>
     </div>
 
@@ -77,8 +72,6 @@
       />
     </div>
 
-    <!-- ── ФИКР-МУЛОҲАЗАЛАР TAB ── -->
-    <FeedbacksTab v-if="feedbacksActivated" v-show="activeTab === 'feedbacks'" />
   </div>
 </template>
 
@@ -95,16 +88,12 @@ import StackedStatusByCurrency from '@/components/analytics/Charts/StackedStatus
 import CardSkeleton            from '@/components/analytics/Skeletons/CardSkeleton.vue';
 import ChartSkeleton           from '@/components/analytics/Skeletons/ChartSkeleton.vue';
 import OrderList               from '@/components/analytics/Orders/OrderList.vue';
-import FeedbacksTab            from '@/components/FeedbacksTab.vue';
-
 const { t } = useI18n();
 
-const activeTab          = ref('analytics');
-const feedbacksActivated = ref(false);
+const activeTab = ref('analytics');
 
 function activateTab(tab) {
   window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
-  if (tab === 'feedbacks') feedbacksActivated.value = true;
   activeTab.value = tab;
 }
 

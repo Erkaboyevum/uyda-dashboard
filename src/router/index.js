@@ -41,9 +41,6 @@ const routes = [
   },
   // Legacy redirects
   { path: '/documents',  redirect: '/app/moliya' },
-  { path: '/analytics',  redirect: '/app/savdo' },
-  { path: '/feedbacks',  redirect: '/app/savdo' },
-  { path: '/profile',    redirect: '/app/moliya' },
   { path: '/profileedit', redirect: '/profileEdit' },
 ]
 
