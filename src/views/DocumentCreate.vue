@@ -1,96 +1,102 @@
 <template>
-  <div class="create-page">
-    <!-- Back header -->
-    <div class="page-header">
-      <button class="back-btn" @click="backToDocuments">
+  <div class="dc-page">
+
+    <!-- Header -->
+    <div class="dc-header">
+      <button class="dc-back" @click="handleBack">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
           <path d="M19 12H5M12 5l-7 7 7 7"/>
         </svg>
       </button>
-      <h1 class="page-title">{{ $t('title') }}</h1>
+      <span class="dc-header-title">Ҳужжат яратиш</span>
     </div>
 
-    <div class="form-body">
-      <!-- ── Document type radio cards ── -->
-      <div class="field">
-        <label class="field-label">{{ $t('docTypeLabel') }}</label>
-        <div class="type-cards">
+    <!-- Body -->
+    <div class="dc-body">
+
+      <!-- Doc type -->
+      <div class="dc-field">
+        <span class="dc-label">Ҳужжат тури</span>
+        <div class="dc-type-row">
           <button
-            v-for="type in docTypes"
-            :key="type.value"
-            class="type-card"
-            :class="{ active: documentType === type.value }"
-            @click="selectDocType(type.value)"
+            v-for="t in DOC_TYPES"
+            :key="t.key"
+            class="dc-type-btn"
+            :class="{ active: docType === t.key }"
+            @click="pickDocType(t.key)"
           >
-            <span class="type-icon">{{ type.icon }}</span>
-            <span class="type-label">{{ type.label }}</span>
+            <span class="dc-type-icon" :style="{ color: t.color }">{{ t.icon }}</span>
+            <span class="dc-type-name">{{ t.label }}</span>
           </button>
         </div>
       </div>
 
-      <!-- ── Operation segmented (Расход only) ── -->
-      <div v-if="documentType === 'Расход' && operations.length" class="field">
-        <label class="field-label">{{ $t('operationType') }}</label>
-        <div class="seg-control">
+      <!-- Operation (only for Расход) -->
+      <div v-if="docType === 'Расход'" class="dc-field">
+        <span class="dc-label">Операция тури</span>
+        <div class="dc-seg">
           <button
-            v-for="op in operations"
-            :key="op"
-            class="seg-btn"
-            :class="{ active: operation === op }"
-            @click="selectOperation(op)"
-          >{{ opLabel(op) }}</button>
+            v-for="op in OPERATIONS"
+            :key="op.key"
+            class="dc-seg-btn"
+            :class="{ active: operation === op.key }"
+            @click="pickOperation(op.key)"
+          >{{ op.label }}</button>
         </div>
       </div>
 
-      <!-- ── Statya (Статья) cascade ── -->
-      <div v-if="actionTypes.length" class="field">
-        <label class="field-label">{{ $t('actionType') }}</label>
-        <div class="select-wrap">
-          <select v-model="actionType" class="field-input" @change="fetchNestedActionTypes">
-            <option value="" disabled>{{ $t('selectOne') }}</option>
+      <!-- ActionType level 1 -->
+      <div v-if="actionTypes.length" class="dc-field">
+        <span class="dc-label">Статья</span>
+        <div class="dc-select-wrap">
+          <select v-model="actionType" class="dc-select" @change="onActionTypeChange">
+            <option value="" disabled>Танланг...</option>
             <option v-for="a in actionTypes" :key="a" :value="a">{{ a }}</option>
           </select>
         </div>
       </div>
 
-      <div v-if="nestedActionTypes.length" class="field">
-        <label class="field-label">{{ $t('statyaGroup') }}</label>
-        <div class="select-wrap">
-          <select v-model="nestedActionType" class="field-input" @change="fetchNestedActionType">
-            <option value="" disabled>{{ $t('selectOne') }}</option>
-            <option v-for="a in nestedActionTypes" :key="a" :value="a">{{ a }}</option>
+      <!-- ActionType level 2 -->
+      <div v-if="actionTypes2.length" class="dc-field">
+        <span class="dc-label">Статья гуруҳи</span>
+        <div class="dc-select-wrap">
+          <select v-model="actionType2" class="dc-select">
+            <option value="" disabled>Танланг...</option>
+            <option v-for="a in actionTypes2" :key="a" :value="a">{{ a }}</option>
           </select>
         </div>
       </div>
 
-      <!-- ── To cash register (Перемещение) ── -->
-      <div v-if="documentType === 'Перемещение'" class="field">
-        <label class="field-label">{{ $t('toCashRegister') }}</label>
-        <div class="select-wrap">
-          <select v-model="cashRegister" class="field-input">
-            <option value="" disabled>{{ $t('selectOne') }}</option>
-            <option v-for="r in cashRegisters" :key="r.cashregisterName" :value="r.cashregisterName">
+      <!-- To cash register (Перемещение) -->
+      <div v-if="docType === 'Перемещение'" class="dc-field">
+        <span class="dc-label">Qayerga o'tkazish</span>
+        <div class="dc-select-wrap">
+          <select v-model="toCashReg" class="dc-select">
+            <option value="" disabled>Танланг...</option>
+            <option v-for="r in cashRegs" :key="r.cashregisterName" :value="r.cashregisterName">
               {{ r.cashregisterName }}
             </option>
           </select>
         </div>
       </div>
 
-      <!-- ── AUP fields ── -->
+      <!-- AUP: subsection + cashRegister -->
       <template v-if="userRole === 'AUP'">
-        <div class="field">
-          <label class="field-label">{{ $t('subsection') }}</label>
-          <div class="select-wrap">
-            <select v-model="subsection" class="field-input">
+        <div class="dc-field">
+          <span class="dc-label">Бўлим</span>
+          <div class="dc-select-wrap">
+            <select v-model="subsection" class="dc-select">
+              <option value="" disabled>Танланг...</option>
               <option v-for="s in subsections" :key="s.name" :value="s.name">{{ s.name }}</option>
             </select>
           </div>
         </div>
-        <div class="field">
-          <label class="field-label">{{ $t('cashRegister') }}</label>
-          <div class="select-wrap">
-            <select v-model="cashRegister" class="field-input">
-              <option v-for="r in cashRegisters" :key="r.cashregisterName" :value="r.cashregisterName">
+        <div class="dc-field">
+          <span class="dc-label">Касса</span>
+          <div class="dc-select-wrap">
+            <select v-model="cashReg" class="dc-select">
+              <option value="" disabled>Танланг...</option>
+              <option v-for="r in cashRegs" :key="r.cashregisterName" :value="r.cashregisterName">
                 {{ r.cashregisterName }}
               </option>
             </select>
@@ -98,262 +104,247 @@
         </div>
       </template>
 
-      <!-- ── Sum input ── -->
-      <div class="field sum-field">
-        <label class="field-label">{{ $t('sumLabel') }}</label>
+      <!-- Sum -->
+      <div class="dc-field">
+        <span class="dc-label">Сумма</span>
         <input
-          class="sum-input"
+          class="dc-sum-input"
           type="text"
           inputmode="numeric"
-          v-model="formattedSum"
-          @input="formatSum"
-          :placeholder="'0'"
+          v-model="displaySum"
+          @input="onSumInput"
+          placeholder="0"
         />
-        <!-- Currency toggle -->
-        <div class="currency-seg">
-          <button
-            class="curr-btn"
-            :class="{ active: currencyType === 'UZS' }"
-            @click="setCurrency('UZS')"
-          >UZS</button>
-          <button
-            class="curr-btn"
-            :class="{ active: currencyType === 'USD' }"
-            @click="setCurrency('USD')"
-          >USD</button>
+        <div class="dc-currency-row">
+          <button class="dc-cur-btn" :class="{ active: currency === 'UZS' }" @click="currency = 'UZS'">UZS</button>
+          <button class="dc-cur-btn" :class="{ active: currency === 'USD' }" @click="currency = 'USD'">USD</button>
         </div>
       </div>
 
-      <!-- ── Comment ── -->
-      <div class="field">
-        <label class="field-label">{{ $t('comment') }}</label>
+      <!-- Comment -->
+      <div class="dc-field">
+        <span class="dc-label">Изоҳ</span>
         <textarea
           v-model="comment"
-          class="field-input textarea"
+          class="dc-textarea"
           rows="3"
-          :placeholder="$t('enterComment')"
+          placeholder="Изоҳ киритинг..."
         />
       </div>
 
-      <!-- Fallback submit (no MainButton) -->
+      <!-- Fallback submit button (when no Telegram MainButton) -->
       <button
-        v-if="!hasTgMainButton"
-        class="submit-btn"
-        :disabled="submitting"
-        @click="submitDocument"
+        v-if="!hasTgBtn"
+        class="dc-submit-btn"
+        :disabled="busy"
+        @click="submit"
       >
-        <span v-if="submitting" class="spinner" />
-        {{ submitting ? $t('loading') : $t('submit') }}
+        <span v-if="busy" class="dc-spinner" />
+        <span v-else>Жўнатиш</span>
       </button>
+
     </div>
 
-    <!-- Toast (error only) -->
-    <Transition name="toast">
-      <div v-if="toast.show" class="toast" :class="toast.type">{{ toast.message }}</div>
+    <!-- Error toast -->
+    <Transition name="dc-toast">
+      <div v-if="errMsg" class="dc-toast">{{ errMsg }}</div>
     </Transition>
 
-    <!-- Success modal -->
-    <Transition name="modal-fade">
-      <div v-if="successModal" class="modal-backdrop" @click.self="goToDocuments">
-        <div class="modal-card">
-          <div class="modal-icon-wrap">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="12" fill="#16A34A" fill-opacity="0.12"/>
-              <circle cx="12" cy="12" r="9" fill="#16A34A" fill-opacity="0.18"/>
-              <path d="M7.5 12.5l3 3 6-6" stroke="#16A34A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </div>
-          <div class="modal-title">Ҳужжат юборилди!</div>
-          <div class="modal-sub">Ҳужжат муваффақиятли яратилди ва тизимга сақланди.</div>
-          <button class="modal-btn" @click="goToDocuments">Молияга қайтиш</button>
-        </div>
-      </div>
-    </Transition>
   </div>
 </template>
 
 <script>
 import axios from 'axios';
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
+import { ref, watch, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import apiLink from '@/config/api';
+
+const DOC_TYPES = [
+  { key: 'Приход',      label: 'Кирим',    icon: '↓', color: '#16A34A' },
+  { key: 'Расход',      label: 'Чиқим',    icon: '↑', color: '#DC2626' },
+  { key: 'Перемещение', label: 'Кўчириш',  icon: '⇄', color: '#2563EB' },
+];
+
+const OPERATIONS = [
+  { key: 'На расходы', label: 'Харажатларга' },
+  { key: 'Поставщику', label: 'Етказувчига'  },
+  { key: 'Инвестиции', label: 'Инвестиция'   },
+];
+
+const HEADERS = {
+  Authorization: 'Basic ' + btoa('admin:57325732'),
+  'Content-Type': 'application/json',
+  'ngrok-skip-browser-warning': 'true',
+};
 
 export default {
   name: 'DocumentCreate',
   setup() {
     const router = useRouter();
+    const tg     = window.Telegram?.WebApp;
 
-    const documentType      = ref('');
-    const operations        = ref([]);
-    const operation         = ref('');
-    const actionTypes       = ref([]);
-    const actionType        = ref('');
-    const nestedActionTypes = ref([]);
-    const nestedActionType  = ref('');
-    const cashRegister      = ref('');
-    const sum               = ref(0);
-    const formattedSum      = ref('');
-    const currencyType      = ref('UZS');
-    const comment           = ref('');
-    const userRole          = ref('');
-    const userOrg           = ref('');
-    const subsection        = ref('');
-    const subsections       = ref([]);
-    const cashRegisters     = ref([]);
-    const submitting        = ref(false);
-    const successModal      = ref(false);
-    const hasTgMainButton   = ref(!!window.Telegram?.WebApp?.MainButton);
+    // ── Form state ──────────────────────────────────────────────
+    const docType     = ref('');
+    const operation   = ref('');
+    const actionType  = ref('');
+    const actionType2 = ref('');
+    const toCashReg   = ref('');
+    const cashReg     = ref('');
+    const rawSum      = ref(0);
+    const displaySum  = ref('');
+    const currency    = ref('UZS');
+    const comment     = ref('');
+    const subsection  = ref('');
 
-    const toast = ref({ show: false, message: '', type: 'success' });
+    // ── Remote data ─────────────────────────────────────────────
+    const actionTypes  = ref([]);
+    const actionTypes2 = ref([]);
+    const cashRegs     = ref([]);
+    const subsections  = ref([]);
+    const userRole     = ref('');
+    const userOrg      = ref('');
 
-    const docTypes = computed(() => [
-      { value: 'Приход',      icon: '↓', label: 'Кирим' },
-      { value: 'Расход',      icon: '↑', label: 'Чиқим' },
-      { value: 'Перемещение', icon: '⇄', label: 'Кўчириш' },
-    ]);
+    // ── UI state ─────────────────────────────────────────────────
+    const busy      = ref(false);
+    const errMsg    = ref('');
+    const hasTgBtn  = ref(!!tg?.MainButton);
+
+    // ── Helpers ──────────────────────────────────────────────────
+    function showError(msg) {
+      errMsg.value = msg;
+      setTimeout(() => { errMsg.value = ''; }, 3500);
+    }
 
     function resetForm() {
-      documentType.value      = '';
-      operations.value        = [];
-      operation.value         = '';
-      actionTypes.value       = [];
-      actionType.value        = '';
-      nestedActionTypes.value = [];
-      nestedActionType.value  = '';
-      cashRegister.value      = '';
-      sum.value               = 0;
-      formattedSum.value      = '';
-      currencyType.value      = 'UZS';
-      comment.value           = '';
-      subsection.value        = '';
+      docType.value     = '';
+      operation.value   = '';
+      actionType.value  = '';
+      actionType2.value = '';
+      toCashReg.value   = '';
+      cashReg.value     = '';
+      rawSum.value      = 0;
+      displaySum.value  = '';
+      currency.value    = 'UZS';
+      comment.value     = '';
+      subsection.value  = '';
+      actionTypes.value  = [];
+      actionTypes2.value = [];
     }
 
-    function showToast(message, type = 'success') {
-      toast.value = { show: true, message, type };
-      setTimeout(() => { toast.value.show = false; }, 3000);
-    }
-
-    const getHeaders = () => ({
-      Authorization: 'Basic ' + btoa('admin:57325732'),
-      'Content-Type': 'application/json',
-      'ngrok-skip-browser-warning': 'true',
-    });
-
-    function opLabel(op) {
-      const map = { 'На расходы': 'Харажатларга', 'Поставщику': 'Етказувчига', 'Инвестиции': 'Инвестициялар' };
-      return map[op] ?? op;
-    }
-
-    function selectDocType(type) {
-      window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
-      documentType.value = type;
-    }
-
-    function selectOperation(op) {
-      window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
-      operation.value = op;
-      fetchActionTypeByOrganization();
-    }
-
-    function setCurrency(c) {
-      window.Telegram?.WebApp?.HapticFeedback?.selectionChanged?.();
-      currencyType.value = c;
-    }
-
-    const fetchUserRole = async () => {
+    // ── API calls ─────────────────────────────────────────────────
+    async function loadUserRole() {
+      const chatId = tg?.initDataUnsafe?.user?.id;
+      if (!chatId) return;
       try {
-        const chatId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
-        if (!chatId) return;
-        const res = await axios.get(`${apiLink}/user?chatId=${chatId}`, { headers: getHeaders() });
-        userRole.value = res.data.data.role;
-        userOrg.value  = res.data.data.organization;
+        const res = await axios.get(`${apiLink}/user?chatId=${chatId}`, { headers: HEADERS });
+        userRole.value = res.data?.data?.role  || '';
+        userOrg.value  = res.data?.data?.organization || '';
         if (userRole.value === 'AUP') {
-          await fetchSubsections(userOrg.value);
-          await fetchCashRegisters();
+          await Promise.all([loadSubsections(userOrg.value), loadCashRegs()]);
         }
       } catch { /* silent */ }
-    };
+    }
 
-    const fetchSubsections = async (org) => {
+    async function loadSubsections(org) {
       try {
-        const res = await axios.get(`${apiLink}/subsection?organizationName=${encodeURIComponent(org)}`, {
-          headers: getHeaders(),
-        });
-        subsections.value = res.data.data;
+        const res = await axios.get(`${apiLink}/subsection?organizationName=${encodeURIComponent(org)}`, { headers: HEADERS });
+        subsections.value = res.data?.data || [];
       } catch { subsections.value = []; }
-    };
+    }
 
-    const fetchCashRegisters = async () => {
+    async function loadCashRegs() {
       try {
-        const res = await axios.get(`${apiLink}/cashregister`, { headers: getHeaders() });
-        cashRegisters.value = res.data.data;
-      } catch { cashRegisters.value = []; }
-    };
+        const res = await axios.get(`${apiLink}/cashregister`, { headers: HEADERS });
+        cashRegs.value = res.data?.data || [];
+      } catch { cashRegs.value = []; }
+    }
 
-    const fetchActionTypeByOrganization = async () => {
-      if (!operation.value) { actionTypes.value = []; return; }
+    async function loadActionTypes(operationName) {
       try {
-        const res = await axios.get(`${apiLink}/actionType?operationName=${encodeURIComponent(operation.value)}`, {
-          headers: getHeaders(),
-        });
-        actionTypes.value = res.data.data || [];
+        const res = await axios.get(`${apiLink}/actionType?operationName=${encodeURIComponent(operationName)}`, { headers: HEADERS });
+        actionTypes.value = res.data?.data || [];
       } catch { actionTypes.value = []; }
-    };
+    }
 
-    const fetchActionTypeByActionTypeName = async (name) => {
-      if (!name) { nestedActionTypes.value = []; return; }
+    async function loadActionTypes2(parentName) {
+      if (!parentName) { actionTypes2.value = []; return; }
       try {
-        const res = await axios.get(`${apiLink}/actionType?actionTypeName=${encodeURIComponent(name)}`, {
-          headers: getHeaders(),
-          validateStatus: (s) => s >= 200 && s < 400,
-        });
-        if (res.status !== 304) nestedActionTypes.value = res.data.data || [];
-      } catch { nestedActionTypes.value = []; }
-    };
+        const res = await axios.get(`${apiLink}/actionType?actionTypeName=${encodeURIComponent(parentName)}`, { headers: HEADERS });
+        actionTypes2.value = res.data?.data || [];
+      } catch { actionTypes2.value = []; }
+    }
 
-    const fetchNestedActionTypes = async () => { await fetchActionTypeByActionTypeName(actionType.value); };
-    const fetchNestedActionType  = async () => { await fetchActionTypeByActionTypeName(nestedActionType.value); };
+    // ── User actions ──────────────────────────────────────────────
+    function pickDocType(key) {
+      tg?.HapticFeedback?.impactOccurred('light');
+      docType.value    = key;
+      operation.value  = '';
+      actionType.value = '';
+      actionType2.value = '';
+      actionTypes.value = [];
+      actionTypes2.value = [];
+    }
 
-    const formatSum = (e) => {
+    function pickOperation(key) {
+      tg?.HapticFeedback?.impactOccurred('light');
+      operation.value  = key;
+      actionType.value = '';
+      actionType2.value = '';
+      actionTypes2.value = [];
+      loadActionTypes(key);
+    }
+
+    function onActionTypeChange() {
+      actionType2.value = '';
+      actionTypes2.value = [];
+      loadActionTypes2(actionType.value);
+    }
+
+    function onSumInput(e) {
       const digits = e.target.value.replace(/\D/g, '');
-      sum.value = parseInt(digits, 10) || 0;
-      formattedSum.value = digits.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-    };
+      rawSum.value    = parseInt(digits, 10) || 0;
+      displaySum.value = digits.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+    }
 
-    const submitDocument = async () => {
-      if (submitting.value) return;
-      window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('medium');
-      submitting.value = true;
+    function handleBack() {
+      tg?.HapticFeedback?.impactOccurred('light');
+      router.push('/app/moliya');
+    }
 
-      const tg = window.Telegram?.WebApp;
-      if (tg?.MainButton) tg.MainButton.showProgress(false);
+    // ── Submit ────────────────────────────────────────────────────
+    async function submit() {
+      if (busy.value) return;
+      tg?.HapticFeedback?.impactOccurred('medium');
+      busy.value = true;
+      tg?.MainButton?.showProgress(false);
 
       try {
         const chatId = tg?.initDataUnsafe?.user?.id;
-        const payload = {
-          documentType: documentType.value || '',
+
+        const finalActionType = operation.value === 'На расходы'
+          ? (actionType2.value || actionType.value)
+          : actionType.value;
+
+        await axios.post(`${apiLink}/document`, {
+          documentType:   docType.value,
           chatId,
-          operation:    operation.value || '',
-          actionType:   operation.value === 'На расходы'
-            ? (nestedActionType.value || '')
-            : (actionType.value || ''),
-          toCashRegister: documentType.value === 'Перемещение' ? (cashRegister.value || '') : '',
-          sum:            parseFloat(sum.value) || 0,
-          currencyType:   currencyType.value || 'UZS',
-          comment:        comment.value || '',
-          subsection:     userRole.value === 'AUP' ? (subsection.value || '') : '',
-          cashRegister:   userRole.value === 'AUP' ? (cashRegister.value || '') : '',
-        };
+          operation:      operation.value,
+          actionType:     finalActionType,
+          toCashRegister: docType.value === 'Перемещение' ? toCashReg.value : '',
+          sum:            rawSum.value,
+          currencyType:   currency.value,
+          comment:        comment.value,
+          subsection:     userRole.value === 'AUP' ? subsection.value : '',
+          cashRegister:   userRole.value === 'AUP' ? cashReg.value   : '',
+        }, { headers: HEADERS });
 
-        await axios.post(`${apiLink}/document`, payload, { headers: getHeaders() });
-
-        // HTTP 2xx — success
-        window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success');
-        if (tg?.MainButton) { tg.MainButton.hideProgress(); tg.MainButton.hide(); }
-        submitting.value = false;
+        // ── Success ──
+        tg?.HapticFeedback?.notificationOccurred('success');
+        tg?.MainButton?.hideProgress();
+        tg?.MainButton?.hide();
+        busy.value = false;
         resetForm();
 
-        // Native Telegram alert (guaranteed visible), fallback to custom modal
         if (tg?.showPopup) {
           tg.showPopup(
             {
@@ -366,293 +357,271 @@ export default {
         } else if (tg?.showAlert) {
           tg.showAlert('✅ Ҳужжат муваффақиятли юборилди!', () => router.push('/app/moliya'));
         } else {
-          successModal.value = true;
+          router.push('/app/moliya');
         }
+
       } catch {
-        window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error');
-        showToast('Хатолик юз берди. Қайта уриниб кўринг.', 'error');
-        if (tg?.MainButton) tg.MainButton.hideProgress();
-        submitting.value = false;
+        // ── Error ──
+        tg?.HapticFeedback?.notificationOccurred('error');
+        tg?.MainButton?.hideProgress();
+        busy.value = false;
+        showError('Хатолик юз берди. Қайта уриниб кўринг.');
       }
-    };
+    }
 
-    const backToDocuments = () => {
-      window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
-      router.push('/app/moliya');
-    };
-
-    const goToDocuments = () => {
-      window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
-      successModal.value = false;
-      router.push('/app/moliya');
-    };
-
-    watch(documentType, (val) => {
-      actionTypes.value = [];
-      operations.value  = [];
-      nestedActionTypes.value = [];
-      operation.value   = '';
-      actionType.value  = '';
-      nestedActionType.value = '';
-
-      if (val === 'Расход') {
-        operations.value = ['На расходы', 'Поставщику', 'Инвестиции'];
+    // ── Watch: load cash regs when Перемещение selected ──────────
+    watch(docType, (val) => {
+      if (val === 'Перемещение' && cashRegs.value.length === 0) {
+        loadCashRegs();
       }
-      if (val === 'Перемещение') fetchCashRegisters();
     });
 
+    // ── Lifecycle ─────────────────────────────────────────────────
     onMounted(async () => {
       resetForm();
+      await loadUserRole();
 
-      if (window.Telegram?.WebApp?.initDataUnsafe?.user) {
-        await fetchUserRole();
-      }
-
-      const tg = window.Telegram?.WebApp;
       if (tg?.MainButton) {
         tg.MainButton.setText('Жўнатиш');
         tg.MainButton.show();
-        tg.MainButton.onClick(submitDocument);
+        tg.MainButton.onClick(submit);
       }
       if (tg?.BackButton) {
         tg.BackButton.show();
-        tg.BackButton.onClick(backToDocuments);
+        tg.BackButton.onClick(handleBack);
       }
     });
 
     onUnmounted(() => {
-      const tg = window.Telegram?.WebApp;
+      tg?.MainButton?.offClick(submit);
       tg?.MainButton?.hide();
-      tg?.MainButton?.offClick(submitDocument);
+      tg?.BackButton?.offClick(handleBack);
       tg?.BackButton?.hide();
-      tg?.BackButton?.offClick(backToDocuments);
     });
 
     return {
-      documentType, docTypes, operations, operation, actionTypes, actionType,
-      nestedActionTypes, nestedActionType, cashRegister, cashRegisters,
-      formattedSum, currencyType, comment, userRole, subsection, subsections,
-      submitting, successModal, hasTgMainButton, toast,
-      selectDocType, selectOperation, setCurrency,
-      fetchNestedActionTypes, fetchNestedActionType,
-      formatSum, submitDocument, backToDocuments, goToDocuments, opLabel, resetForm,
+      DOC_TYPES, OPERATIONS,
+      docType, operation, actionType, actionType2, toCashReg,
+      cashReg, displaySum, currency, comment, subsection,
+      actionTypes, actionTypes2, cashRegs, subsections, userRole,
+      busy, errMsg, hasTgBtn,
+      pickDocType, pickOperation, onActionTypeChange, onSumInput,
+      handleBack, submit,
     };
   },
 };
 </script>
 
 <style scoped>
-.create-page {
+/* ── Page ── */
+.dc-page {
   min-height: 100dvh;
   background: var(--surface-1);
-  padding-bottom: 32px;
+  display: flex;
+  flex-direction: column;
 }
 
-/* Header */
-.page-header {
+/* ── Header ── */
+.dc-header {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 16px 16px 12px;
+  padding: 14px 16px;
   position: sticky;
   top: 0;
   background: var(--surface-1);
   border-bottom: 1px solid var(--border-subtle);
   z-index: 10;
 }
-.back-btn {
-  width: 40px; height: 40px;
+.dc-back {
+  width: 38px; height: 38px;
   border: none; border-radius: 10px;
   background: var(--surface-2);
   color: var(--text-primary);
   display: flex; align-items: center; justify-content: center;
   cursor: pointer; flex-shrink: 0;
-  transition: transform 150ms;
+  transition: transform 140ms;
 }
-.back-btn:active { transform: scale(0.92); }
-.page-title {
-  font-size: 18px; font-weight: 700;
+.dc-back:active { transform: scale(0.90); }
+.dc-header-title {
+  font-size: 17px; font-weight: 700;
   color: var(--text-primary);
 }
 
-/* Form body */
-.form-body { display: flex; flex-direction: column; gap: 18px; padding: 16px; }
-
-/* Field */
-.field { display: flex; flex-direction: column; gap: 7px; }
-.field-label {
-  font-size: 12px; font-weight: 600;
-  color: var(--text-secondary);
-  text-transform: uppercase; letter-spacing: 0.5px;
+/* ── Body ── */
+.dc-body {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 18px 16px 40px;
 }
 
-/* Type cards */
-.type-cards { display: flex; gap: 10px; }
-.type-card {
-  flex: 1; min-height: 72px;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
+/* ── Field ── */
+.dc-field { display: flex; flex-direction: column; gap: 8px; }
+.dc-label {
+  font-size: 11px; font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase; letter-spacing: 0.6px;
+}
+
+/* ── Doc type cards ── */
+.dc-type-row { display: flex; gap: 10px; }
+.dc-type-btn {
+  flex: 1;
+  min-height: 76px;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 6px;
   border-radius: 14px;
   border: 2px solid var(--border-subtle);
   background: var(--surface-2);
   cursor: pointer;
+  transition: border-color 160ms, background 160ms, transform 120ms;
+  -webkit-tap-highlight-color: transparent;
   overflow: visible;
-  transition: all 180ms ease;
 }
-.type-card:active { transform: scale(0.95); }
-.type-card.active {
+.dc-type-btn:active { transform: scale(0.94); }
+.dc-type-btn.active {
   border-color: var(--brand-500);
-  background: var(--brand-50, #EFF6FF);
+  background: color-mix(in srgb, var(--brand-500) 8%, transparent);
 }
-.type-icon { font-size: 22px; line-height: 1; font-style: normal; }
-.type-label { font-size: 12px; font-weight: 700; color: var(--text-primary); line-height: 1; }
+.dc-type-icon {
+  font-size: 24px;
+  line-height: 1;
+  display: block;
+}
+.dc-type-name {
+  font-size: 12px; font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1;
+}
 
-/* Segmented */
-.seg-control { display: flex; background: var(--surface-2); border-radius: 10px; padding: 3px; gap: 2px; }
-.seg-btn {
-  flex: 1; height: 36px; border: none; border-radius: 7px;
-  background: transparent; color: var(--text-secondary);
-  font-size: 13px; font-weight: 500; cursor: pointer;
-  transition: all 180ms ease;
+/* ── Segmented control ── */
+.dc-seg {
+  display: flex;
+  background: var(--surface-2);
+  border-radius: 10px;
+  padding: 3px; gap: 2px;
 }
-.seg-btn.active {
+.dc-seg-btn {
+  flex: 1; height: 34px;
+  border: none; border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px; font-weight: 600;
+  cursor: pointer;
+  transition: background 160ms, color 160ms;
+  -webkit-tap-highlight-color: transparent;
+}
+.dc-seg-btn.active {
   background: var(--surface-1);
   color: var(--text-primary);
-  font-weight: 700;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.10);
 }
 
-/* Select */
-.select-wrap { position: relative; }
-.select-wrap::after {
-  content: '▾'; position: absolute;
-  right: 14px; top: 50%; transform: translateY(-50%);
-  pointer-events: none; color: var(--text-secondary); font-size: 13px;
+/* ── Select ── */
+.dc-select-wrap { position: relative; }
+.dc-select-wrap::after {
+  content: '▾';
+  position: absolute; right: 14px; top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: var(--text-secondary); font-size: 13px;
 }
-.field-input {
-  width: 100%; height: 52px; border-radius: 12px;
-  border: 1.5px solid transparent;
+.dc-select {
+  width: 100%; height: 50px;
+  border-radius: 12px;
+  border: 1.5px solid var(--border-subtle);
   background: var(--surface-2);
   color: var(--text-primary);
-  padding: 0 16px; font-size: 16px;
-  appearance: none; -webkit-appearance: none; outline: none;
-  transition: border-color 150ms, background 150ms;
-}
-.field-input:focus { border-color: var(--brand-500); background: var(--surface-1); }
-.field-input:disabled { opacity: 0.45; cursor: not-allowed; }
-.field-input.textarea {
-  height: auto; padding: 14px 16px; resize: none;
-  line-height: 1.5;
-}
-
-/* Sum */
-.sum-field { align-items: center; }
-.sum-input {
-  width: 100%; height: 72px;
-  border-radius: 14px;
-  border: 1.5px solid transparent;
-  background: var(--surface-2);
-  color: var(--text-primary);
-  font-size: 32px; font-weight: 800;
-  letter-spacing: -1px;
-  text-align: center;
-  font-variant-numeric: tabular-nums;
+  padding: 0 40px 0 16px;
+  font-size: 15px;
+  appearance: none; -webkit-appearance: none;
   outline: none;
   transition: border-color 150ms;
 }
-.sum-input:focus { border-color: var(--brand-500); background: var(--surface-1); }
+.dc-select:focus { border-color: var(--brand-500); }
 
-/* Currency toggle */
-.currency-seg {
-  display: flex; gap: 6px; margin-top: 4px;
-}
-.curr-btn {
-  flex: 1; height: 38px; border-radius: 10px;
+/* ── Sum input ── */
+.dc-sum-input {
+  width: 100%; height: 70px;
+  border-radius: 14px;
   border: 1.5px solid var(--border-subtle);
-  background: var(--surface-2); color: var(--text-secondary);
-  font-size: 13px; font-weight: 700; cursor: pointer;
-  transition: all 150ms;
+  background: var(--surface-2);
+  color: var(--text-primary);
+  font-size: 30px; font-weight: 800;
+  text-align: center;
+  letter-spacing: -0.5px;
+  outline: none;
+  transition: border-color 150ms;
 }
-.curr-btn.active {
-  background: var(--brand-500); color: #fff; border-color: var(--brand-500);
+.dc-sum-input:focus { border-color: var(--brand-500); }
+
+/* ── Currency ── */
+.dc-currency-row { display: flex; gap: 8px; }
+.dc-cur-btn {
+  flex: 1; height: 38px;
+  border-radius: 10px;
+  border: 1.5px solid var(--border-subtle);
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  font-size: 13px; font-weight: 700;
+  cursor: pointer;
+  transition: all 140ms;
+  -webkit-tap-highlight-color: transparent;
+}
+.dc-cur-btn.active {
+  background: var(--brand-500);
+  color: #fff;
+  border-color: var(--brand-500);
 }
 
-/* Submit */
-.submit-btn {
+/* ── Textarea ── */
+.dc-textarea {
+  width: 100%;
+  border-radius: 12px;
+  border: 1.5px solid var(--border-subtle);
+  background: var(--surface-2);
+  color: var(--text-primary);
+  padding: 12px 16px;
+  font-size: 15px; line-height: 1.5;
+  resize: none; outline: none;
+  transition: border-color 150ms;
+}
+.dc-textarea:focus { border-color: var(--brand-500); }
+
+/* ── Fallback submit ── */
+.dc-submit-btn {
   height: 52px; border-radius: 14px; border: none;
-  background: linear-gradient(135deg, var(--gradient-start, #2563EB), var(--gradient-end, #6B21A8));
+  background: linear-gradient(135deg, #2563EB, #6B21A8);
   color: #fff; font-size: 16px; font-weight: 700;
   display: flex; align-items: center; justify-content: center; gap: 8px;
-  box-shadow: 0 4px 16px rgba(37,99,235,0.28);
-  cursor: pointer; transition: transform 150ms;
+  cursor: pointer;
+  transition: transform 140ms, opacity 140ms;
+  -webkit-tap-highlight-color: transparent;
 }
-.submit-btn:active:not(:disabled) { transform: scale(0.97); }
-.submit-btn:disabled { opacity: 0.6; cursor: default; }
+.dc-submit-btn:active:not(:disabled) { transform: scale(0.97); }
+.dc-submit-btn:disabled { opacity: 0.55; cursor: default; }
 
-.spinner {
+/* ── Spinner ── */
+.dc-spinner {
   width: 18px; height: 18px;
-  border: 2px solid rgba(255,255,255,0.3);
+  border: 2.5px solid rgba(255,255,255,0.35);
   border-top-color: #fff;
   border-radius: 50%;
-  animation: spin 0.8s linear infinite;
+  animation: dc-spin 0.75s linear infinite;
 }
-@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes dc-spin { to { transform: rotate(360deg); } }
 
-/* Toast */
-.toast {
-  position: fixed; top: 16px; left: 16px; right: 16px;
+/* ── Error toast ── */
+.dc-toast {
+  position: fixed; bottom: 24px; left: 16px; right: 16px;
+  background: #FEE2E2; color: #B91C1C;
   padding: 14px 16px; border-radius: 14px;
   font-size: 14px; font-weight: 600; text-align: center;
-  z-index: 300; box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+  z-index: 500;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.14);
 }
-.toast.error   { background: var(--status-error-bg, #FEE2E2);   color: var(--status-error-fg, #B91C1C); }
-.toast.success { background: var(--status-success-bg, #DCFCE7); color: var(--status-success-fg, #15803D); }
-.toast-enter-active, .toast-leave-active { transition: opacity 250ms, transform 250ms; }
-.toast-enter-from, .toast-leave-to { opacity: 0; transform: translateY(-12px); }
-
-/* Success modal */
-.modal-backdrop {
-  position: fixed; inset: 0;
-  background: rgba(0,0,0,0.45);
-  display: flex; align-items: flex-end; justify-content: center;
-  z-index: 400;
-  padding: 16px;
-}
-.modal-card {
-  width: 100%; max-width: 420px;
-  background: var(--surface-1);
-  border-radius: 24px;
-  padding: 32px 24px 28px;
-  display: flex; flex-direction: column; align-items: center;
-  gap: 12px;
-  box-shadow: 0 -4px 40px rgba(0,0,0,0.18);
-}
-.modal-icon-wrap {
-  width: 72px; height: 72px;
-  border-radius: 50%;
-  background: #DCFCE7;
-  display: flex; align-items: center; justify-content: center;
-  margin-bottom: 4px;
-}
-.modal-title {
-  font-size: 20px; font-weight: 800;
-  color: var(--text-primary);
-  text-align: center;
-}
-.modal-sub {
-  font-size: 14px; color: var(--text-secondary);
-  text-align: center; line-height: 1.5;
-}
-.modal-btn {
-  margin-top: 8px;
-  width: 100%; height: 52px;
-  border-radius: 14px; border: none;
-  background: linear-gradient(135deg, #16A34A, #15803D);
-  color: #fff; font-size: 16px; font-weight: 700;
-  cursor: pointer;
-  transition: transform 150ms;
-}
-.modal-btn:active { transform: scale(0.97); }
-
-.modal-fade-enter-active, .modal-fade-leave-active { transition: opacity 250ms, transform 250ms; }
-.modal-fade-enter-from, .modal-fade-leave-to { opacity: 0; transform: translateY(24px); }
+.dc-toast-enter-active, .dc-toast-leave-active { transition: opacity 220ms, transform 220ms; }
+.dc-toast-enter-from, .dc-toast-leave-to { opacity: 0; transform: translateY(10px); }
 </style>
