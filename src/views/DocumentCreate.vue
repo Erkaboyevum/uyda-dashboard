@@ -193,6 +193,22 @@ export default {
       { value: 'Перемещение', icon: '⇄', label: 'Кўчириш' },
     ]);
 
+    function resetForm() {
+      documentType.value      = '';
+      operations.value        = [];
+      operation.value         = '';
+      actionTypes.value       = [];
+      actionType.value        = '';
+      nestedActionTypes.value = [];
+      nestedActionType.value  = '';
+      cashRegister.value      = '';
+      sum.value               = 0;
+      formattedSum.value      = '';
+      currencyType.value      = 'UZS';
+      comment.value           = '';
+      subsection.value        = '';
+    }
+
     function showToast(message, type = 'success') {
       toast.value = { show: true, message, type };
       setTimeout(() => { toast.value.show = false; }, 3000);
@@ -291,9 +307,7 @@ export default {
       submitting.value = true;
 
       const tg = window.Telegram?.WebApp;
-      if (tg?.MainButton) {
-        tg.MainButton.showProgress(false);
-      }
+      if (tg?.MainButton) tg.MainButton.showProgress(false);
 
       try {
         const chatId = tg?.initDataUnsafe?.user?.id;
@@ -316,13 +330,14 @@ export default {
 
         window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success');
         if (tg?.MainButton) tg.MainButton.hideProgress();
+        resetForm();
         showToast('Ҳужжат муваффақиятли жўнатилди!', 'success');
+        // submitting stays true until navigation — prevents double-submit
         setTimeout(() => router.push('/app/moliya'), 1200);
       } catch {
         window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error');
         showToast('Хатолик юз берди. Қайта уриниб кўринг.', 'error');
         if (tg?.MainButton) tg.MainButton.hideProgress();
-      } finally {
         submitting.value = false;
       }
     };
@@ -347,6 +362,8 @@ export default {
     });
 
     onMounted(async () => {
+      resetForm();
+
       if (window.Telegram?.WebApp?.initDataUnsafe?.user) {
         await fetchUserRole();
       }
@@ -378,7 +395,7 @@ export default {
       submitting, hasTgMainButton, toast,
       selectDocType, selectOperation, setCurrency,
       fetchNestedActionTypes, fetchNestedActionType,
-      formatSum, submitDocument, backToDocuments, opLabel,
+      formatSum, submitDocument, backToDocuments, opLabel, resetForm,
     };
   },
 };
@@ -432,12 +449,13 @@ export default {
 /* Type cards */
 .type-cards { display: flex; gap: 10px; }
 .type-card {
-  flex: 1; height: 72px;
+  flex: 1; min-height: 72px;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
   border-radius: 14px;
   border: 2px solid var(--border-subtle);
   background: var(--surface-2);
   cursor: pointer;
+  overflow: visible;
   transition: all 180ms ease;
 }
 .type-card:active { transform: scale(0.95); }
@@ -445,8 +463,8 @@ export default {
   border-color: var(--brand-500);
   background: var(--brand-50, #EFF6FF);
 }
-.type-icon { font-size: 22px; }
-.type-label { font-size: 12px; font-weight: 700; color: var(--text-primary); }
+.type-icon { font-size: 22px; line-height: 1; font-style: normal; }
+.type-label { font-size: 12px; font-weight: 700; color: var(--text-primary); line-height: 1; }
 
 /* Segmented */
 .seg-control { display: flex; background: var(--surface-2); border-radius: 10px; padding: 3px; gap: 2px; }
