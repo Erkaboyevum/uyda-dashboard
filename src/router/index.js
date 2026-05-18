@@ -35,11 +35,6 @@ const routes = [
     ],
   },
   {
-    path: '/addDocument',
-    name: 'DocumentCreate',
-    component: () => import('@/views/DocumentCreate.vue'),
-  },
-  {
     path: '/profileEdit',
     name: 'ProfileEdit',
     component: () => import('@/views/ProfileEdit.vue'),

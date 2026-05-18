@@ -69,19 +69,6 @@
     </div>
 
     <div class="bottom-space" />
-
-    <!-- ── FAB ── -->
-    <router-link
-      to="/addDocument"
-      class="fab"
-      aria-label="Ҳужжат яратиш"
-      @click.native="fabHaptic"
-    >
-      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.8" stroke-linecap="round">
-        <line x1="12" y1="5" x2="12" y2="19"/>
-        <line x1="5" y1="12" x2="19" y2="12"/>
-      </svg>
-    </router-link>
   </div>
 </template>
 
@@ -206,15 +193,11 @@ export default {
       return 'amt-neutral';
     }
 
-    function fabHaptic() {
-      window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('medium');
-    }
-
     return {
       documents, loading, profileLoading, errorMessage,
       cashRegisterName, displayBalance,
       formatNumber, docIcon, iconBg, amountColor,
-      canAccessAnalytics, fabHaptic, t,
+      canAccessAnalytics, t,
     };
   },
 };
@@ -356,26 +339,6 @@ export default {
 .empty-msg   { font-size: 15px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; }
 .empty-hint  { font-size: 13px; color: var(--text-secondary); }
 
-/* ── FAB ── */
-.fab {
-  position: fixed;
-  right: 16px;
-  bottom: calc(var(--bar-h) + var(--sab) + 16px);
-  width: 56px; height: 56px;
-  background: linear-gradient(135deg, #2563EB, #1D4ED8);
-  border-radius: 18px;
-  display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.35);
-  z-index: 80;
-  text-decoration: none;
-  will-change: transform;
-  transition: transform 150ms ease, box-shadow 150ms ease;
-  -webkit-tap-highlight-color: transparent;
-}
-.fab:active {
-  transform: scale(0.90);
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
-}
 
 .bottom-space { height: 24px; }
 
