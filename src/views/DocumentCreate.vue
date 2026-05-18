@@ -315,6 +315,7 @@ export default {
         await axios.post(`${apiLink}/document`, payload, { headers: getHeaders() });
 
         window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success');
+        if (tg?.MainButton) tg.MainButton.hideProgress();
         showToast('Ҳужжат муваффақиятли жўнатилди!', 'success');
         setTimeout(() => router.push('/app/moliya'), 1200);
       } catch {
