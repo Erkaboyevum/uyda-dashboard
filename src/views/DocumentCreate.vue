@@ -345,12 +345,31 @@ export default {
           cashRegister:   userRole.value === 'AUP' ? (cashRegister.value || '') : '',
         };
 
-        await axios.post(`${apiLink}/document`, payload, { headers: getHeaders() });
+        const res = await axios.post(`${apiLink}/document`, payload, { headers: getHeaders() });
+
+        // Backend returns HTTP 200 even on business-logic failures, with
+        // { Code: '4xx', message: '...' }. Treat anything other than Code '200'
+        // (or no Code field at all) as success only when status is 2xx + no Code error.
+        const apiCode = res?.data?.Code;
+        const isApiSuccess = apiCode === undefined || apiCode === null || apiCode === '200' || apiCode === 200;
+
+        if (!isApiSuccess) {
+          const apiMsg = (typeof res.data?.message === 'string' && res.data.message) || 'Хатолик юз берди. Қайта уриниб кўринг.';
+          window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error');
+          showToast(apiMsg, 'error');
+          if (tg?.MainButton) tg.MainButton.hideProgress();
+          submitting.value = false;
+          return;
+        }
 
         window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success');
         if (tg?.MainButton) { tg.MainButton.hideProgress(); tg.MainButton.hide(); }
-        resetForm();
+
+        // Show modal BEFORE resetForm() so any watchers fired by reset
+        // can't accidentally interfere with the success UI.
         successModal.value = true;
+        resetForm();
+        submitting.value = false;
       } catch {
         window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error');
         showToast('Хатолик юз берди. Қайта уриниб кўринг.', 'error');
