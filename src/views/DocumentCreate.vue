@@ -147,9 +147,27 @@
       </button>
     </div>
 
-    <!-- Toast -->
+    <!-- Toast (error only) -->
     <Transition name="toast">
       <div v-if="toast.show" class="toast" :class="toast.type">{{ toast.message }}</div>
+    </Transition>
+
+    <!-- Success modal -->
+    <Transition name="modal-fade">
+      <div v-if="successModal" class="modal-backdrop" @click.self="goToDocuments">
+        <div class="modal-card">
+          <div class="modal-icon-wrap">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="12" fill="#16A34A" fill-opacity="0.12"/>
+              <circle cx="12" cy="12" r="9" fill="#16A34A" fill-opacity="0.18"/>
+              <path d="M7.5 12.5l3 3 6-6" stroke="#16A34A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div class="modal-title">Ҳужжат юборилди!</div>
+          <div class="modal-sub">Ҳужжат муваффақиятли яратилди ва тизимга сақланди.</div>
+          <button class="modal-btn" @click="goToDocuments">Молияга қайтиш</button>
+        </div>
+      </div>
     </Transition>
   </div>
 </template>
@@ -183,6 +201,7 @@ export default {
     const subsections       = ref([]);
     const cashRegisters     = ref([]);
     const submitting        = ref(false);
+    const successModal      = ref(false);
     const hasTgMainButton   = ref(!!window.Telegram?.WebApp?.MainButton);
 
     const toast = ref({ show: false, message: '', type: 'success' });
@@ -329,11 +348,9 @@ export default {
         await axios.post(`${apiLink}/document`, payload, { headers: getHeaders() });
 
         window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success');
-        if (tg?.MainButton) tg.MainButton.hideProgress();
+        if (tg?.MainButton) { tg.MainButton.hideProgress(); tg.MainButton.hide(); }
         resetForm();
-        showToast('Ҳужжат муваффақиятли жўнатилди!', 'success');
-        // submitting stays true until navigation — prevents double-submit
-        setTimeout(() => router.push('/app/moliya'), 1200);
+        successModal.value = true;
       } catch {
         window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error');
         showToast('Хатолик юз берди. Қайта уриниб кўринг.', 'error');
@@ -344,6 +361,12 @@ export default {
 
     const backToDocuments = () => {
       window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
+      router.push('/app/moliya');
+    };
+
+    const goToDocuments = () => {
+      window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
+      successModal.value = false;
       router.push('/app/moliya');
     };
 
@@ -392,10 +415,10 @@ export default {
       documentType, docTypes, operations, operation, actionTypes, actionType,
       nestedActionTypes, nestedActionType, cashRegister, cashRegisters,
       formattedSum, currencyType, comment, userRole, subsection, subsections,
-      submitting, hasTgMainButton, toast,
+      submitting, successModal, hasTgMainButton, toast,
       selectDocType, selectOperation, setCurrency,
       fetchNestedActionTypes, fetchNestedActionType,
-      formatSum, submitDocument, backToDocuments, opLabel, resetForm,
+      formatSum, submitDocument, backToDocuments, goToDocuments, opLabel, resetForm,
     };
   },
 };
@@ -568,4 +591,51 @@ export default {
 .toast.success { background: var(--status-success-bg, #DCFCE7); color: var(--status-success-fg, #15803D); }
 .toast-enter-active, .toast-leave-active { transition: opacity 250ms, transform 250ms; }
 .toast-enter-from, .toast-leave-to { opacity: 0; transform: translateY(-12px); }
+
+/* Success modal */
+.modal-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.45);
+  display: flex; align-items: flex-end; justify-content: center;
+  z-index: 400;
+  padding: 16px;
+}
+.modal-card {
+  width: 100%; max-width: 420px;
+  background: var(--surface-1);
+  border-radius: 24px;
+  padding: 32px 24px 28px;
+  display: flex; flex-direction: column; align-items: center;
+  gap: 12px;
+  box-shadow: 0 -4px 40px rgba(0,0,0,0.18);
+}
+.modal-icon-wrap {
+  width: 72px; height: 72px;
+  border-radius: 50%;
+  background: #DCFCE7;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 4px;
+}
+.modal-title {
+  font-size: 20px; font-weight: 800;
+  color: var(--text-primary);
+  text-align: center;
+}
+.modal-sub {
+  font-size: 14px; color: var(--text-secondary);
+  text-align: center; line-height: 1.5;
+}
+.modal-btn {
+  margin-top: 8px;
+  width: 100%; height: 52px;
+  border-radius: 14px; border: none;
+  background: linear-gradient(135deg, #16A34A, #15803D);
+  color: #fff; font-size: 16px; font-weight: 700;
+  cursor: pointer;
+  transition: transform 150ms;
+}
+.modal-btn:active { transform: scale(0.97); }
+
+.modal-fade-enter-active, .modal-fade-leave-active { transition: opacity 250ms, transform 250ms; }
+.modal-fade-enter-from, .modal-fade-leave-to { opacity: 0; transform: translateY(24px); }
 </style>
