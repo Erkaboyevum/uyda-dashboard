@@ -68,6 +68,17 @@
     </div>
 
     <div class="bottom-space" />
+
+    <!-- ── Floating add button ── -->
+    <button
+      class="fab"
+      :aria-label="t('finance.addDocument')"
+      @click="goCreate"
+    >
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round">
+        <path d="M12 5v14M5 12h14"/>
+      </svg>
+    </button>
   </div>
 </template>
 
@@ -75,6 +86,7 @@
 import axios from 'axios';
 import { ref, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useRouter } from 'vue-router';
 import apiLink from '@/config/api';
 import { useCurrentUser } from '@/composables/useCurrentUser';
 import TodaySalesCard from '@/components/TodaySalesCard.vue';
@@ -84,7 +96,13 @@ export default {
   components: { TodaySalesCard },
   setup() {
     const { t }  = useI18n();
+    const router = useRouter();
     const { setUser, canAccessAnalytics } = useCurrentUser();
+
+    function goCreate() {
+      window.Telegram?.WebApp?.HapticFeedback?.impactOccurred?.('medium');
+      router.push('/document/new');
+    }
 
     const documents     = ref([]);
     const loading       = ref(true);
@@ -196,7 +214,7 @@ export default {
       documents, loading, profileLoading, errorMessage,
       cashRegisterName, displayBalance,
       formatNumber, docIcon, iconBg, amountColor,
-      canAccessAnalytics, t,
+      canAccessAnalytics, t, goCreate,
     };
   },
 };
@@ -338,7 +356,29 @@ export default {
 .empty-msg   { font-size: 15px; font-weight: 600; color: var(--text-secondary); }
 
 
-.bottom-space { height: 24px; }
+.bottom-space { height: 96px; }
+
+/* ── Floating action button ── */
+.fab {
+  position: fixed;
+  right: 20px;
+  bottom: calc(var(--bar-h, 64px) + var(--sab, 0px) + 20px);
+  width: 56px; height: 56px;
+  border: none;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #2563EB 0%, #6B21A8 100%);
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 8px 24px rgba(37,99,235,0.45);
+  cursor: pointer;
+  z-index: 50;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 150ms ease, box-shadow 200ms ease;
+}
+.fab:active {
+  transform: scale(0.92);
+  box-shadow: 0 4px 14px rgba(37,99,235,0.4);
+}
 
 /* ── Card list animation ── */
 .card-list-enter-active {
