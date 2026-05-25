@@ -289,10 +289,10 @@ export default {
         return;
       }
       try {
-        const res = await axios.get(`${apiLink}/actionType`, {
-          params: { operationName: operation.value },
-          headers: getHeaders(),
-        });
+        // Use template literal (not axios `params`) so spaces stay as %20, not "+"
+        // — the backend rejects "+" in operation/actionType names.
+        const url = `${apiLink}/actionType?operationName=${encodeURIComponent(operation.value)}`;
+        const res = await axios.get(url, { headers: getHeaders() });
         actionTypes.value = res.data?.data || [];
       } catch {
         actionTypes.value = [];
@@ -301,8 +301,8 @@ export default {
 
     async function fetchChildrenOf(parentName) {
       try {
-        const res = await axios.get(`${apiLink}/actionType`, {
-          params: { actionTypeName: parentName },
+        const url = `${apiLink}/actionType?actionTypeName=${encodeURIComponent(parentName)}`;
+        const res = await axios.get(url, {
           headers: getHeaders(),
           validateStatus: (s) => s >= 200 && s < 400,
         });
