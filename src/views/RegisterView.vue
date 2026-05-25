@@ -196,7 +196,10 @@ export default {
           organization:  selectedOrganization.value,
           subsection:    selectedSubsection.value,
           cashRegister:  selectedCashRegister.value,
-        }, { headers: getHeaders() });
+        }, { 
+          headers: getHeaders(),
+          timeout: 15000 
+        });
 
         window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success');
         router.push('/sent');
@@ -225,6 +228,8 @@ export default {
 
       // Setup Telegram MainButton
       if (tg?.MainButton) {
+        tg.MainButton.hideProgress();
+        tg.MainButton.enable();
         tg.MainButton.setText(t('submit'));
         tg.MainButton.show();
         tg.MainButton.onClick(registerUser);
@@ -239,8 +244,11 @@ export default {
 
     onUnmounted(() => {
       const tg = window.Telegram?.WebApp;
-      tg?.MainButton?.hide();
-      tg?.MainButton?.offClick(registerUser);
+      if (tg?.MainButton) {
+        tg.MainButton.hideProgress();
+        tg.MainButton.hide();
+        tg.MainButton.offClick(registerUser);
+      }
       tg?.BackButton?.hide();
     });
 

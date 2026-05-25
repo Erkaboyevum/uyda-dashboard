@@ -370,6 +370,7 @@ export default {
 
         const response = await axios.post(`${apiLink}/document`, payload, {
           headers: getHeaders(),
+          timeout: 15000,
           validateStatus: (s) => s >= 200 && s < 500,
         });
 
@@ -425,6 +426,8 @@ export default {
     onMounted(() => {
       const tg = window.Telegram?.WebApp;
       if (tg?.MainButton) {
+        tg.MainButton.hideProgress();
+        tg.MainButton.enable();
         tg.MainButton.setText(t('finance.submit'));
         tg.MainButton.show();
         tg.MainButton.onClick(submitDocument);
@@ -437,11 +440,16 @@ export default {
 
     onUnmounted(() => {
       const tg = window.Telegram?.WebApp;
-      tg?.MainButton?.hide();
-      tg?.MainButton?.offClick(submitDocument);
-      tg?.BackButton?.hide();
-      tg?.BackButton?.offClick(goBack);
-      tg?.BackButton?.offClick(blockBack);
+      if (tg?.MainButton) {
+        tg.MainButton.hideProgress();
+        tg.MainButton.hide();
+        tg.MainButton.offClick(submitDocument);
+      }
+      if (tg?.BackButton) {
+        tg.BackButton.hide();
+        tg.BackButton.offClick(goBack);
+        tg.BackButton.offClick(blockBack);
+      }
     });
 
     return {

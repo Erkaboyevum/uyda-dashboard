@@ -196,7 +196,10 @@ export default {
           language:     language.value,
           role:         role.value,
           checked:      checked.value,
-        }, { headers: getHeaders() });
+        }, { 
+          headers: getHeaders(),
+          timeout: 15000 
+        });
 
         // Update locale immediately
         i18n.global.locale.value = language.value;
@@ -230,6 +233,8 @@ export default {
 
       const tg = window.Telegram?.WebApp;
       if (tg?.MainButton) {
+        tg.MainButton.hideProgress();
+        tg.MainButton.enable();
         tg.MainButton.setText(t('save'));
         tg.MainButton.show();
         tg.MainButton.onClick(updateProfile);
@@ -242,10 +247,15 @@ export default {
 
     onUnmounted(() => {
       const tg = window.Telegram?.WebApp;
-      tg?.MainButton?.hide();
-      tg?.MainButton?.offClick(updateProfile);
-      tg?.BackButton?.hide();
-      tg?.BackButton?.offClick(backTo);
+      if (tg?.MainButton) {
+        tg.MainButton.hideProgress();
+        tg.MainButton.hide();
+        tg.MainButton.offClick(updateProfile);
+      }
+      if (tg?.BackButton) {
+        tg.BackButton.hide();
+        tg.BackButton.offClick(backTo);
+      }
     });
 
     return {
