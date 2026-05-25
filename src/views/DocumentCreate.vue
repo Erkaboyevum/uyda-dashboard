@@ -213,6 +213,10 @@ export default {
     const toast        = ref({ show: false, message: '', type: 'success' });
     const hasTgMainButton = ref(!!window.Telegram?.WebApp?.MainButton);
 
+    // Track in-flight request + pending navigation so we can cancel on unmount
+    let abortController = null;
+    let navTimer = null;
+
     function showToast(message, type = 'success') {
       toast.value = { show: true, message, type };
       setTimeout(() => { toast.value.show = false; }, 2400);
@@ -349,6 +353,10 @@ export default {
         tg.BackButton.onClick(blockBack);
       }
 
+      // Abort any leftover request from a previous attempt before starting a new one
+      if (abortController) abortController.abort();
+      abortController = new AbortController();
+
       try {
         const chatId = tg?.initDataUnsafe?.user?.id ?? currentUser.chatId;
         const payload = {
@@ -371,6 +379,7 @@ export default {
         const response = await axios.post(`${apiLink}/document`, payload, {
           headers: getHeaders(),
           timeout: 15000,
+          signal: abortController.signal,
           validateStatus: (s) => s >= 200 && s < 500,
         });
 
@@ -391,8 +400,15 @@ export default {
         window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred?.('success');
         if (tg?.MainButton) tg.MainButton.hideProgress();
         showToast(t('finance.submitSuccess'), 'success');
-        setTimeout(() => router.push('/app/moliya'), 700);
+        navTimer = setTimeout(() => {
+          navTimer = null;
+          router.replace('/app/moliya');
+        }, 700);
       } catch (err) {
+        // Aborted requests are not real errors — they happen on unmount
+        if (axios.isCancel?.(err) || err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED') {
+          return;
+        }
         window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred?.('error');
         submitError.value =
           err?.response?.data?.errorMessage ||
@@ -424,8 +440,14 @@ export default {
     }
 
     onMounted(() => {
+      // Fresh mount — make sure no stale state from a previous attempt is lingering
+      isSubmitting.value = false;
+      submitError.value  = '';
+
       const tg = window.Telegram?.WebApp;
       if (tg?.MainButton) {
+        // hide() + show() forces Telegram to drop any leftover progress visual
+        tg.MainButton.hide();
         tg.MainButton.hideProgress();
         tg.MainButton.enable();
         tg.MainButton.setText(t('finance.submit'));
@@ -439,9 +461,20 @@ export default {
     });
 
     onUnmounted(() => {
+      // Kill any in-flight request and pending navigation so the next mount is clean
+      if (abortController) {
+        abortController.abort();
+        abortController = null;
+      }
+      if (navTimer) {
+        clearTimeout(navTimer);
+        navTimer = null;
+      }
+
       const tg = window.Telegram?.WebApp;
       if (tg?.MainButton) {
         tg.MainButton.hideProgress();
+        tg.MainButton.enable();
         tg.MainButton.hide();
         tg.MainButton.offClick(submitDocument);
       }
