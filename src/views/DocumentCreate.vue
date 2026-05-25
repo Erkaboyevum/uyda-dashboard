@@ -67,7 +67,7 @@
         </div>
       </div>
 
-      <!-- Nested action type (expense, "На расходы") -->
+      <!-- Nested action type (expense, "На расходы") — drills down recursively until leaf -->
       <div v-if="documentType === 'Расход' && nestedActionTypes.length" class="field">
         <label class="field-label">&nbsp;</label>
         <div class="select-wrap">
@@ -75,6 +75,7 @@
             v-model="nestedActionType"
             class="field-input"
             :disabled="isSubmitting"
+            @change="onNestedActionTypeChange"
           >
             <option value="" disabled>{{ t('selectOne') }}</option>
             <option v-for="n in nestedActionTypes" :key="n" :value="n">{{ n }}</option>
@@ -298,19 +299,38 @@ export default {
       }
     }
 
+    async function fetchChildrenOf(parentName) {
+      try {
+        const res = await axios.get(`${apiLink}/actionType`, {
+          params: { actionTypeName: parentName },
+          headers: getHeaders(),
+          validateStatus: (s) => s >= 200 && s < 400,
+        });
+        return res.data?.data || [];
+      } catch {
+        return [];
+      }
+    }
+
     async function onActionTypeChange() {
       nestedActionType.value = '';
       nestedActionTypes.value = [];
       clearError();
       if (operation.value !== 'На расходы' || !actionType.value) return;
-      try {
-        const res = await axios.get(`${apiLink}/actionType`, {
-          params: { actionTypeName: actionType.value },
-          headers: getHeaders(),
-          validateStatus: (s) => s >= 200 && s < 400,
-        });
-        nestedActionTypes.value = res.data?.data || [];
-      } catch {
+      nestedActionTypes.value = await fetchChildrenOf(actionType.value);
+    }
+
+    async function onNestedActionTypeChange() {
+      clearError();
+      if (!nestedActionType.value) return;
+      const selected = nestedActionType.value;
+      const children = await fetchChildrenOf(selected);
+      if (children.length) {
+        // Drill deeper — replace options with selected's children, clear pick so user re-selects
+        nestedActionTypes.value = children;
+        nestedActionType.value = '';
+      } else {
+        // Leaf reached — hide dropdown; nestedActionType keeps the leaf value for submit
         nestedActionTypes.value = [];
       }
     }
@@ -492,7 +512,7 @@ export default {
       toCashRegister, cashRegisters,
       formattedSum, currencyType, comment,
       isSubmitting, submitError, hasTgMainButton, toast,
-      selectType, setCurrency, onSumInput, onOperationChange, onActionTypeChange,
+      selectType, setCurrency, onSumInput, onOperationChange, onActionTypeChange, onNestedActionTypeChange,
       submitDocument, goBack, clearError,
     };
   },
