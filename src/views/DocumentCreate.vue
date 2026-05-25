@@ -379,22 +379,25 @@ export default {
 
       try {
         const chatId = tg?.initDataUnsafe?.user?.id ?? currentUser.chatId;
+        // Match the legacy payload shape — server rejects partial payloads
+        // (currencyType must be "UZS"/"USD", subsection/cashRegister/toCashRegister
+        //  are always present, even as empty strings)
         const payload = {
-          chatId: String(chatId || ''),
-          documentType: documentType.value,
-          sum: Number(sum.value),
-          currencyType: currencyType.value === 'UZS' ? 'сум.' : 'USD',
-          comment: comment.value || '',
+          chatId:         String(chatId || ''),
+          documentType:   documentType.value,
+          operation:      documentType.value === 'Расход' ? operation.value : '',
+          actionType:     documentType.value === 'Расход'
+            ? (operation.value === 'На расходы' && nestedActionType.value
+                ? nestedActionType.value
+                : actionType.value)
+            : '',
+          toCashRegister: documentType.value === 'Перемещение' ? (toCashRegister.value || '') : '',
+          sum:            Number(sum.value) || 0,
+          currencyType:   currencyType.value || 'UZS',
+          comment:        comment.value || '',
+          subsection:     currentUser.subsection   || '',
+          cashRegister:   currentUser.cashRegister || '',
         };
-        if (documentType.value === 'Расход') {
-          payload.operation  = operation.value;
-          payload.actionType = operation.value === 'На расходы' && nestedActionType.value
-            ? nestedActionType.value
-            : actionType.value;
-        }
-        if (documentType.value === 'Перемещение') {
-          payload.toCashRegister = toCashRegister.value;
-        }
 
         const response = await axios.post(`${apiLink}/document`, payload, {
           headers: getHeaders(),
