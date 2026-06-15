@@ -35,3 +35,6 @@ coverage
 .netlify
 
 .vercel
+
+# Backend secrets — never commit the real .env
+server/.env
