@@ -108,9 +108,6 @@ const router = useRouter();
 const FLYER_BASE    = 'https://api.erkaboyev.uz/Golddishes_test/hs/flyers';
 const FALLBACK_CHAT_ID = '1319223069';
 
-// PDF backend — update to your server's public URL in production
-const PDF_BACKEND = import.meta.env.VITE_PDF_BACKEND_URL || 'http://localhost:3001';
-
 const chatId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id
   ? String(window.Telegram.WebApp.initDataUnsafe.user.id)
   : FALLBACK_CHAT_ID;
@@ -195,10 +192,10 @@ async function submitFlyer() {
     // doesn't block. The PDFs will arrive in Telegram within a few seconds.
     const generatedFlyers = res.data?.data || res.data?.flyers || [];
     if (generatedFlyers.length > 0) {
-      axios.post(`${PDF_BACKEND}/flyer/generate`, {
+      axios.post('/api/flyer/generate', {
         chatID: chatId,
         flyers: generatedFlyers,
-      }).catch(err => console.warn('[pdf-backend]', err.message));
+      }).catch(err => console.warn('[pdf]', err.message));
     }
 
     window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred?.('success');
