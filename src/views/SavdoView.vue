@@ -13,6 +13,11 @@
           :class="{ active: activeTab === 'orders' }"
           @click="activateTab('orders')"
         >{{ t('savdo.orders') }}</button>
+        <button
+          class="seg-btn"
+          :class="{ active: activeTab === 'flyer' }"
+          @click="activateTab('flyer')"
+        >{{ t('savdo.flyer') }}</button>
       </div>
     </div>
 
@@ -72,15 +77,19 @@
       />
     </div>
 
-    <!-- ── Flyer FAB ── -->
-    <button class="fab" :aria-label="t('flyer.addFlyer')" @click="goCreateFlyer">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-        <polyline points="14 2 14 8 20 8"/>
-        <line x1="12" y1="11" x2="12" y2="17"/>
-        <line x1="9" y1="14" x2="15" y2="14"/>
-      </svg>
-    </button>
+    <!-- ── ФЛАЙЕР TAB ── -->
+    <div v-show="activeTab === 'flyer'" class="flyer-tab">
+      <div class="flyer-empty">
+        <div class="flyer-emoji">🎟️</div>
+        <div class="flyer-title">{{ t('flyer.createFlyer') }}</div>
+        <div class="flyer-hint">{{ t('flyer.tabHint') }}</div>
+      </div>
+      <button class="fab" :aria-label="t('flyer.addFlyer')" @click="goCreateFlyer">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round">
+          <path d="M12 5v14M5 12h14"/>
+        </svg>
+      </button>
+    </div>
 
   </div>
 </template>
@@ -192,18 +201,31 @@ const {
   padding: 12px 16px; overflow-x: auto; scrollbar-width: none;
 }
 
-/* ── Flyer FAB ── */
+/* ── Flyer tab ── */
+.flyer-tab { position: relative; min-height: 300px; }
+.flyer-empty {
+  text-align: center;
+  padding: 56px 24px 120px;
+}
+.flyer-emoji { font-size: 48px; margin-bottom: 14px; }
+.flyer-title {
+  font-size: 18px; font-weight: 700;
+  color: var(--text-primary); margin-bottom: 8px;
+}
+.flyer-hint { font-size: 14px; color: var(--text-secondary); line-height: 1.5; }
+
+/* ── FAB (flyer tab only) ── */
 .fab {
   position: fixed;
   right: 20px;
   bottom: calc(var(--bar-h, 64px) + var(--sab, 0px) + 20px);
-  width: 52px; height: 52px;
+  width: 56px; height: 56px;
   border: none;
   border-radius: 50%;
   background: linear-gradient(135deg, #2563EB 0%, #6B21A8 100%);
   color: #fff;
   display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 6px 20px rgba(37,99,235,0.40);
+  box-shadow: 0 8px 24px rgba(37,99,235,0.45);
   cursor: pointer;
   z-index: 50;
   -webkit-tap-highlight-color: transparent;
@@ -211,6 +233,6 @@ const {
 }
 .fab:active {
   transform: scale(0.92);
-  box-shadow: 0 3px 12px rgba(37,99,235,0.35);
+  box-shadow: 0 4px 14px rgba(37,99,235,0.40);
 }
 </style>

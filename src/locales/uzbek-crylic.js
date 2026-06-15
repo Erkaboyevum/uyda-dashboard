@@ -49,6 +49,7 @@ export default {
   savdo: {
     analytics: "Аналитика",
     orders:    "Буюртмалар",
+    flyer:     "Флайер",
   },
   analytics: {
     filters: "Фильтрлар",
@@ -94,6 +95,7 @@ export default {
     create:                   "Яратиш",
     createSuccess:            "Флайер муваффақиятли яратилди ✓",
     addFlyer:                 "Флайер яратиш",
+    tabHint:                  "Янги флайер яратиш учун + тугмасини босинг",
   },
   errors: {
     requiredField: "Илтимос, барча мажбурий майдонларни тўлдиринг.",

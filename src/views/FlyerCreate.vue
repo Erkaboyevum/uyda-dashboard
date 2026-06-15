@@ -113,7 +113,7 @@ const chatId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id
   : FALLBACK_CHAT_ID;
 
 const getFlyerHeaders = () => ({
-  Authorization: 'Basic ' + btoa('ADMIN:SHAXBOZ 2005Shah@'),
+  Authorization: 'Basic ' + btoa('ADMIN SHAXBOZ:2005Shah@'),
   'Content-Type': 'application/json',
   'ngrok-skip-browser-warning': 'true',
 });

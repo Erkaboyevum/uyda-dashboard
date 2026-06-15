@@ -49,6 +49,7 @@ export default {
   savdo: {
     analytics: "Аналитика",
     orders:    "Заказы",
+    flyer:     "Флаер",
   },
   analytics: {
     filters: "Фильтры",
@@ -94,6 +95,7 @@ export default {
     create:                   "Создать",
     createSuccess:            "Флаер успешно создан ✓",
     addFlyer:                 "Создать флаер",
+    tabHint:                  "Нажмите + чтобы создать новый флаер",
   },
   errors: {
     requiredField: "Пожалуйста, заполните все обязательные поля.",
