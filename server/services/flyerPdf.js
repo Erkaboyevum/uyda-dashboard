@@ -71,8 +71,17 @@ const BACK_IMAGE_URL  = 'https://cdn.erkaboyev.uz/Flyer/Flyer_back.png';
 const _imageCache = new Map();
 
 /**
- * Download a PNG from url. Returns the buffer, or null if the image is not yet
- * available (404 / network error) — callers fall back to a placeholder fill.
+ * Embed a buffer into a PDFDocument, auto-detecting JPEG vs PNG by magic bytes.
+ * JPEG: starts with FF D8. PNG: starts with 89 50.
+ */
+async function embedImage(pdfDoc, buf) {
+  const isJpeg = buf[0] === 0xFF && buf[1] === 0xD8;
+  return isJpeg ? pdfDoc.embedJpg(buf) : pdfDoc.embedPng(buf);
+}
+
+/**
+ * Download background image from URL. Returns buffer or null on failure.
+ * Handles JPEG images served with a .png extension (the CDN does this).
  */
 async function fetchPng(url) {
   if (_imageCache.has(url)) return _imageCache.get(url);
@@ -135,7 +144,7 @@ export async function generateFrontPdf(flyers) {
   ]);
 
   const font    = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-  const bgImage = bgBytes ? await pdfDoc.embedPng(bgBytes) : null;
+  const bgImage = bgBytes ? await embedImage(pdfDoc, bgBytes) : null;
 
   const perPage = COLS * ROWS;
   const numPages = Math.ceil(flyers.length / perPage);
@@ -193,7 +202,7 @@ export async function generateBackPdf(flyers) {
     fetchPng(BACK_IMAGE_URL),
   ]);
 
-  const bgImage = bgBytes ? await pdfDoc.embedPng(bgBytes) : null;
+  const bgImage = bgBytes ? await embedImage(pdfDoc, bgBytes) : null;
 
   const perPage = COLS * ROWS;
   const numPages = Math.ceil(flyers.length / perPage);
@@ -217,7 +226,7 @@ export async function generateBackPdf(flyers) {
           color: rgb(0.93, 0.93, 0.93), borderColor: rgb(0.7, 0.7, 0.7), borderWidth: 1 });
       }
 
-      // Generate barcode and embed — each flyer gets its own unique barcode
+      // Generate barcode (always PNG from bwip-js) and embed
       const barcodePng   = await makeBarcodeBuffer(flyers[idx].barcode);
       const barcodeImage = await pdfDoc.embedPng(barcodePng);
 
