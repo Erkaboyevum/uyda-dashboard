@@ -20,24 +20,36 @@ const CELL_W = PAGE_W / COLS;   // ≈ 280.67 pt
 const CELL_H = PAGE_H / ROWS;   // = 595.5  pt
 
 // ─────────────────────────────────────────────────────────────────────────────
-// FRONT PDF — discount % text overlay
-// Offsets from FLYER top-left corner; Y increases DOWNWARD.
+// FRONT PDF — primary discount number (large, centred on the golden % graphic)
+// X/Y are from the FLYER top-left; Y increases DOWNWARD.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const TEXT_PERCENT_OFFSET_X = 150;
-const TEXT_PERCENT_OFFSET_Y = 200;
-const TEXT_PERCENT_SIZE     = 48;
-const TEXT_PERCENT_COLOR    = rgb(1, 1, 1);
+const TEXT_PERCENT_OFFSET_X = 60;           // pts from flyer left edge  ← decrease to move left
+const TEXT_PERCENT_OFFSET_Y = 200;          // pts from flyer top edge   ← increase to move down
+const TEXT_PERCENT_SIZE     = 100;
+const TEXT_PERCENT_COLOR    = rgb(1, 1, 1); // white
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FRONT PDF — secondary discount label (small, sits before "chegirmani qo'lga kiriting!")
+// X/Y are from the FLYER top-left; Y increases DOWNWARD.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const TEXT_SECONDARY_OFFSET_X = 30;            // pts from flyer left edge
+const TEXT_SECONDARY_OFFSET_Y = 350;           // pts from flyer top edge
+const TEXT_SECONDARY_SIZE     = 24;
+const TEXT_SECONDARY_COLOR    = rgb(1, 1, 1);  // white
 
 // ─────────────────────────────────────────────────────────────────────────────
 // BACK PDF — barcode overlay
-// Offsets from FLYER top-left corner; Y increases DOWNWARD.
+// X is from the FLYER left edge.
+// Y (BARCODE_OFFSET_Y) is from the FLYER BOTTOM edge, increasing UPWARD
+// (matches pdf-lib convention — decrease Y to move the barcode lower).
 // ─────────────────────────────────────────────────────────────────────────────
 
-const BARCODE_OFFSET_X = 80;
-const BARCODE_OFFSET_Y = 500;
-const BARCODE_WIDTH    = 120;
-const BARCODE_HEIGHT   = 40;
+const BARCODE_OFFSET_X = 40;    // pts from flyer left edge
+const BARCODE_OFFSET_Y = 20;    // pts from flyer BOTTOM edge  ← decrease to move lower
+const BARCODE_WIDTH    = 200;   // pts  ← wider for standard elongated look
+const BARCODE_HEIGHT   = 50;    // pts
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CDN IMAGE URLS
@@ -73,10 +85,11 @@ async function embedImageBuf(pdfDoc, buf) {
 }
 
 // Code128 barcode → PNG buffer (bwip-js callback API wrapped as a Promise).
+// includetext renders the human-readable digits below the bars inside the image.
 function makeBarcodeBuffer(text) {
   return new Promise((resolve, reject) => {
     bwipjs.toBuffer(
-      { bcid: 'code128', text, scale: 2, height: 10, includetext: false, backgroundcolor: 'ffffff' },
+      { bcid: 'code128', text, scale: 2, height: 10, includetext: true, textxalign: 'center', backgroundcolor: 'ffffff' },
       (err, png) => (err ? reject(err) : resolve(png)),
     );
   });
@@ -127,12 +140,22 @@ async function generateFrontPdf(flyers, bgBytes) {
         });
       }
 
+      // Primary large number (e.g. "17")
       page.drawText(String(flyers[idx].discountPercent), {
         x:     x + TEXT_PERCENT_OFFSET_X,
         y:     topY - TEXT_PERCENT_OFFSET_Y,
         size:  TEXT_PERCENT_SIZE,
         font,
         color: TEXT_PERCENT_COLOR,
+      });
+
+      // Secondary small label (e.g. "17%") — sits just before "chegirmani qo'lga kiriting!"
+      page.drawText(`${flyers[idx].discountPercent}%`, {
+        x:     x + TEXT_SECONDARY_OFFSET_X,
+        y:     topY - TEXT_SECONDARY_OFFSET_Y,
+        size:  TEXT_SECONDARY_SIZE,
+        font,
+        color: TEXT_SECONDARY_COLOR,
       });
     }
   }
@@ -170,11 +193,13 @@ async function generateBackPdf(flyers, bgBytes) {
       }
 
       // Generate barcode strictly awaited before embedding — unique per flyer.
+      // Y = bottomY + BARCODE_OFFSET_Y: offset measured from cell bottom upward
+      // (pdf-lib native convention — decrease BARCODE_OFFSET_Y to move lower).
       const barcodePng   = await makeBarcodeBuffer(flyers[idx].barcode);
       const barcodeImage = await pdfDoc.embedPng(barcodePng);
       page.drawImage(barcodeImage, {
         x:      x + BARCODE_OFFSET_X,
-        y:      topY - BARCODE_OFFSET_Y - BARCODE_HEIGHT,
+        y:      bottomY + BARCODE_OFFSET_Y,
         width:  BARCODE_WIDTH,
         height: BARCODE_HEIGHT,
       });
