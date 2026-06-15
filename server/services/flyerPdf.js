@@ -21,32 +21,26 @@ const CELL_H = PAGE_H / ROWS;   // = 595.5  pt
 
 // ─────────────────────────────────────────────────────────────────────────────
 // FRONT PDF — discount % text overlay
-//
-// All offsets are measured from the FLYER's TOP-LEFT corner.
-// Y increases DOWNWARD (same as Photoshop / CSS).
-// Increase OFFSET_Y to move the text lower; decrease to move it higher.
+// Offsets from FLYER top-left corner; Y increases DOWNWARD.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const TEXT_PERCENT_OFFSET_X = 150;          // pts from flyer left edge
-const TEXT_PERCENT_OFFSET_Y = 200;          // pts from flyer top edge
+const TEXT_PERCENT_OFFSET_X = 150;
+const TEXT_PERCENT_OFFSET_Y = 200;
 const TEXT_PERCENT_SIZE     = 48;
-const TEXT_PERCENT_COLOR    = rgb(1, 1, 1); // white — change to rgb(1,0.84,0) for gold
+const TEXT_PERCENT_COLOR    = rgb(1, 1, 1);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // BACK PDF — barcode overlay
-//
-// All offsets are measured from the FLYER's TOP-LEFT corner.
-// Y increases DOWNWARD (same as Photoshop / CSS).
-// Increase BARCODE_OFFSET_Y to move the barcode lower (toward bottom white box).
+// Offsets from FLYER top-left corner; Y increases DOWNWARD.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const BARCODE_OFFSET_X = 80;    // pts from flyer left edge
-const BARCODE_OFFSET_Y = 500;   // pts from flyer top edge  ← tune this first
-const BARCODE_WIDTH    = 120;   // pts
-const BARCODE_HEIGHT   = 40;    // pts
+const BARCODE_OFFSET_X = 80;
+const BARCODE_OFFSET_Y = 500;
+const BARCODE_WIDTH    = 120;
+const BARCODE_HEIGHT   = 40;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// IMAGE URLS
+// CDN IMAGE URLS
 // ─────────────────────────────────────────────────────────────────────────────
 
 const FRONT_IMAGE_URL = 'https://cdn.erkaboyev.uz/Flyer/Flyer_front.png';
@@ -56,11 +50,8 @@ const BACK_IMAGE_URL  = 'https://cdn.erkaboyev.uz/Flyer/Flyer_back.png';
 // HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
 
-// One-request image cache (lives for the lifetime of the Node.js process).
-const _imgCache = new Map();
-
-async function fetchImage(url) {
-  if (_imgCache.has(url)) return _imgCache.get(url);
+// Direct fetch — no caching, strictly awaited, returns null on failure (→ placeholder).
+async function fetchImageRaw(url) {
   try {
     const res = await axios.get(url, {
       responseType: 'arraybuffer',
@@ -68,24 +59,20 @@ async function fetchImage(url) {
       httpsAgent: cdnAgent,
       validateStatus: s => s === 200,
     });
-    const buf = Buffer.from(res.data);
-    _imgCache.set(url, buf);
-    return buf;
+    return Buffer.from(res.data);
   } catch (err) {
-    console.warn(`[flyerPdf] image unavailable (${url}): ${err.message} — placeholder used`);
-    _imgCache.set(url, null);
+    console.warn(`[pdf] image unavailable (${url}): ${err.message} — placeholder will be used`);
     return null;
   }
 }
 
-// Auto-detect JPEG (FF D8) vs PNG (89 50) so we call the right pdf-lib embedder.
-// The CDN serves JPEG files with a .png extension, hence the need for this check.
+// Auto-detect JPEG (FF D8) vs PNG (89 50) — CDN serves JPEG with a .png extension.
 async function embedImageBuf(pdfDoc, buf) {
   const isJpeg = buf[0] === 0xFF && buf[1] === 0xD8;
   return isJpeg ? pdfDoc.embedJpg(buf) : pdfDoc.embedPng(buf);
 }
 
-// Code128 barcode → PNG buffer (bwip-js callback API, wrapped as Promise).
+// Code128 barcode → PNG buffer (bwip-js callback API wrapped as a Promise).
 function makeBarcodeBuffer(text) {
   return new Promise((resolve, reject) => {
     bwipjs.toBuffer(
@@ -95,38 +82,26 @@ function makeBarcodeBuffer(text) {
   });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// COORDINATE HELPER
-//
-// pdf-lib Y axis points UP (origin = page bottom-left).
-// Our user-facing offsets point DOWN from the cell's top-left corner.
-//
-//   cellBottomY  = PAGE_H - (row + 1) * CELL_H   ← pdf-lib y for image/rect
-//   cellTopY     = PAGE_H -  row      * CELL_H   ← used to convert top-down offsets
-//
-// To convert a top-down visual offset into a pdf-lib Y for a drawn element:
-//   pdf_y = cellTopY - visualOffsetY - elementHeight
-//
-// For text, elementHeight ≈ 0 (pdf-lib places text by its baseline, not top).
-// ─────────────────────────────────────────────────────────────────────────────
-
+// Converts a top-left-down visual offset to pdf-lib bottom-left coords for a cell.
+// bottomY = page-bottom of the cell; topY = page-top of the cell.
 function cellCoords(col, row) {
-  const x        = col * CELL_W;
-  const bottomY  = PAGE_H - (row + 1) * CELL_H;   // bottom-left — for drawImage / drawRect
-  const topY     = PAGE_H -  row      * CELL_H;   // top of cell  — for offset conversion
+  const x       = col * CELL_W;
+  const bottomY = PAGE_H - (row + 1) * CELL_H;
+  const topY    = PAGE_H -  row      * CELL_H;
   return { x, bottomY, topY };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PDF 1: Flyers_Front.pdf
+// PDF GENERATORS
+// Both accept a pre-fetched bgBytes buffer (may be null → gray placeholder).
+// The buffer is embedded into the pdf document ONCE, then reused for every cell.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function generateFrontPdf(flyers) {
-  const [pdfDoc, bgBytes] = await Promise.all([
-    PDFDocument.create(),
-    fetchImage(FRONT_IMAGE_URL),
-  ]);
-  const font    = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+async function generateFrontPdf(flyers, bgBytes) {
+  const pdfDoc = await PDFDocument.create();
+  const font   = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+  // Embed background ONCE — reused for all cells across all pages.
   const bgImage = bgBytes ? await embedImageBuf(pdfDoc, bgBytes) : null;
 
   const perPage  = COLS * ROWS;
@@ -143,7 +118,6 @@ export async function generateFrontPdf(flyers) {
       const row = Math.floor(slot / COLS);
       const { x, bottomY, topY } = cellCoords(col, row);
 
-      // Background image (fills the entire flyer cell)
       if (bgImage) {
         page.drawImage(bgImage, { x, y: bottomY, width: CELL_W, height: CELL_H });
       } else {
@@ -153,11 +127,9 @@ export async function generateFrontPdf(flyers) {
         });
       }
 
-      // Discount % text — offset from flyer top-left, Y increases downward
-      const discount = String(flyers[idx].discountPercent);
-      page.drawText(discount, {
+      page.drawText(String(flyers[idx].discountPercent), {
         x:     x + TEXT_PERCENT_OFFSET_X,
-        y:     topY - TEXT_PERCENT_OFFSET_Y,   // baseline in pdf-lib coords
+        y:     topY - TEXT_PERCENT_OFFSET_Y,
         size:  TEXT_PERCENT_SIZE,
         font,
         color: TEXT_PERCENT_COLOR,
@@ -168,15 +140,10 @@ export async function generateFrontPdf(flyers) {
   return Buffer.from(await pdfDoc.save());
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PDF 2: Flyers_Back.pdf
-// ─────────────────────────────────────────────────────────────────────────────
+async function generateBackPdf(flyers, bgBytes) {
+  const pdfDoc = await PDFDocument.create();
 
-export async function generateBackPdf(flyers) {
-  const [pdfDoc, bgBytes] = await Promise.all([
-    PDFDocument.create(),
-    fetchImage(BACK_IMAGE_URL),
-  ]);
+  // Embed background ONCE — reused for all cells across all pages.
   const bgImage = bgBytes ? await embedImageBuf(pdfDoc, bgBytes) : null;
 
   const perPage  = COLS * ROWS;
@@ -193,7 +160,6 @@ export async function generateBackPdf(flyers) {
       const row = Math.floor(slot / COLS);
       const { x, bottomY, topY } = cellCoords(col, row);
 
-      // Background image (fills the entire flyer cell)
       if (bgImage) {
         page.drawImage(bgImage, { x, y: bottomY, width: CELL_W, height: CELL_H });
       } else {
@@ -203,8 +169,7 @@ export async function generateBackPdf(flyers) {
         });
       }
 
-      // Barcode — offset from flyer top-left, Y increases downward
-      // (topY - BARCODE_OFFSET_Y - BARCODE_HEIGHT) converts to pdf-lib bottom-left
+      // Generate barcode strictly awaited before embedding — unique per flyer.
       const barcodePng   = await makeBarcodeBuffer(flyers[idx].barcode);
       const barcodeImage = await pdfDoc.embedPng(barcodePng);
       page.drawImage(barcodeImage, {
@@ -241,13 +206,36 @@ async function sendDocumentToTelegram(botToken, chatId, pdfBuffer, filename, cap
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MAIN ENTRY
+//
+// Execution order that guarantees no race conditions:
+//   1. Pre-fetch BOTH background images (parallel, fully awaited before any PDF work)
+//   2. Generate BOTH PDFs (parallel, images already in memory — no network I/O)
+//   3. Send front PDF to Telegram, then back PDF
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function processAndSendFlyers(chatId, flyers, botToken) {
-  const [frontBuf, backBuf] = await Promise.all([
-    generateFrontPdf(flyers),
-    generateBackPdf(flyers),
+  // ── Step 1: Pre-fetch both background images ──────────────────────────────
+  // Both HTTP requests run in parallel, but Promise.all ensures NEITHER PDF
+  // generation starts until BOTH buffers are fully downloaded and in memory.
+  console.log('[pdf] fetching background images...');
+  const [frontImgBuf, backImgBuf] = await Promise.all([
+    fetchImageRaw(FRONT_IMAGE_URL),
+    fetchImageRaw(BACK_IMAGE_URL),
   ]);
+  console.log(
+    `[pdf] images ready — front: ${frontImgBuf?.length ?? 'null'}B  back: ${backImgBuf?.length ?? 'null'}B`,
+  );
+
+  // ── Step 2: Generate both PDFs (no network calls for images) ─────────────
+  console.log(`[pdf] generating PDFs for ${flyers.length} flyers...`);
+  const [frontBuf, backBuf] = await Promise.all([
+    generateFrontPdf(flyers, frontImgBuf),
+    generateBackPdf(flyers, backImgBuf),
+  ]);
+  console.log(`[pdf] PDFs ready — front: ${frontBuf.length}B  back: ${backBuf.length}B`);
+
+  // ── Step 3: Send to Telegram ──────────────────────────────────────────────
   await sendDocumentToTelegram(botToken, chatId, frontBuf, 'Flyers_Front.pdf', 'Флайер — олдинги томон 🎟️');
   await sendDocumentToTelegram(botToken, chatId, backBuf,  'Flyers_Back.pdf',  'Флайер — орқа томон 🔖');
+  console.log('[pdf] both documents delivered to Telegram');
 }
