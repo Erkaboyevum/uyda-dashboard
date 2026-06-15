@@ -20,49 +20,56 @@ const CELL_W = PAGE_W / COLS;   // ≈ 280.67 pt
 const CELL_H = PAGE_H / ROWS;   // = 595.5  pt
 
 // ─────────────────────────────────────────────────────────────────────────────
-// FRONT PDF — primary discount number (large, centred on the golden % graphic)
-// X/Y are from the FLYER top-left; Y increases DOWNWARD.
+// FRONT PDF — primary discount number (large, on the golden % graphic)
+// X: from flyer LEFT edge.  Y: from flyer TOP edge, increasing DOWNWARD.
+// Increase OFFSET_Y to move text lower; decrease to move higher.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const TEXT_PERCENT_OFFSET_X = 60;           // pts from flyer left edge  ← decrease to move left
-const TEXT_PERCENT_OFFSET_Y = 200;          // pts from flyer top edge   ← increase to move down
+const TEXT_PERCENT_OFFSET_X = 60;           // pts from flyer left edge
+const TEXT_PERCENT_OFFSET_Y = 200;          // pts from flyer top edge  ← increase → lower
 const TEXT_PERCENT_SIZE     = 100;
 const TEXT_PERCENT_COLOR    = rgb(1, 1, 1); // white
 
 // ─────────────────────────────────────────────────────────────────────────────
-// FRONT PDF — secondary discount label (small, sits before "chegirmani qo'lga kiriting!")
-// X/Y are from the FLYER top-left; Y increases DOWNWARD.
+// FRONT PDF — secondary discount label ("17%", before "chegirmani qo'lga kiriting!")
+// X: from flyer LEFT edge.  Y: from flyer BOTTOM edge, increasing UPWARD.
+// Increase OFFSET_Y to move text higher; decrease to move lower.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const TEXT_SECONDARY_OFFSET_X = 30;            // pts from flyer left edge
-const TEXT_SECONDARY_OFFSET_Y = 350;           // pts from flyer top edge
+const TEXT_SECONDARY_OFFSET_Y = 250;           // pts from flyer BOTTOM edge  ← increase → higher
 const TEXT_SECONDARY_SIZE     = 24;
 const TEXT_SECONDARY_COLOR    = rgb(1, 1, 1);  // white
 
 // ─────────────────────────────────────────────────────────────────────────────
 // BACK PDF — barcode overlay
-// X is from the FLYER left edge.
-// Y (BARCODE_OFFSET_Y) is from the FLYER BOTTOM edge, increasing UPWARD
-// (matches pdf-lib convention — decrease Y to move the barcode lower).
+// X: barcode is auto-centered horizontally within the cell.
+// Y: from flyer BOTTOM edge, increasing UPWARD (pdf-lib native).
+// Increase BARCODE_OFFSET_Y to move barcode higher; decrease to move lower.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const BARCODE_OFFSET_X = 40;    // pts from flyer left edge
 const BARCODE_OFFSET_Y = 20;    // pts from flyer BOTTOM edge  ← decrease to move lower
-const BARCODE_WIDTH    = 200;   // pts  ← wider for standard elongated look
-const BARCODE_HEIGHT   = 50;    // pts
+const BARCODE_WIDTH    = 140;   // pts  ← constrained to fit inside white box
+const BARCODE_HEIGHT   = 40;    // pts
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CDN IMAGE URLS
+// ASSETS
 // ─────────────────────────────────────────────────────────────────────────────
 
 const FRONT_IMAGE_URL = 'https://cdn.erkaboyev.uz/Flyer/Flyer_front.png';
 const BACK_IMAGE_URL  = 'https://cdn.erkaboyev.uz/Flyer/Flyer_back.png';
 
+// Stable GitHub raw URL for Montserrat ExtraBold TTF (google/fonts repo).
+// The bytes are cached in-process after the first fetch — fonts are static.
+const MONTSERRAT_EXTRABOLD_URL =
+  'https://raw.githubusercontent.com/google/fonts/main/ofl/montserrat/static/Montserrat-ExtraBold.ttf';
+
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Direct fetch — no caching, strictly awaited, returns null on failure (→ placeholder).
+// Background images are NOT cached — every request fetches fresh so that a
+// CDN failure on one request never poisons subsequent ones.
 async function fetchImageRaw(url) {
   try {
     const res = await axios.get(url, {
@@ -78,25 +85,57 @@ async function fetchImageRaw(url) {
   }
 }
 
+// Fonts are static and safe to cache across requests within the same
+// Vercel instance.  Cache the successful buffer; never cache a failure.
+const _fontCache = new Map();
+
+async function fetchFontBytes(url) {
+  if (_fontCache.has(url)) {
+    console.log('[pdf] font loaded from in-process cache');
+    return _fontCache.get(url);
+  }
+  try {
+    const res = await axios.get(url, {
+      responseType: 'arraybuffer',
+      timeout: 20_000,
+      validateStatus: s => s === 200,
+    });
+    const buf = Buffer.from(res.data);
+    _fontCache.set(url, buf);
+    console.log(`[pdf] font fetched and cached (${buf.length}B)`);
+    return buf;
+  } catch (err) {
+    console.warn(`[pdf] font unavailable (${url}): ${err.message} — falling back to Helvetica`);
+    return null;
+  }
+}
+
 // Auto-detect JPEG (FF D8) vs PNG (89 50) — CDN serves JPEG with a .png extension.
 async function embedImageBuf(pdfDoc, buf) {
   const isJpeg = buf[0] === 0xFF && buf[1] === 0xD8;
   return isJpeg ? pdfDoc.embedJpg(buf) : pdfDoc.embedPng(buf);
 }
 
-// Code128 barcode → PNG buffer (bwip-js callback API wrapped as a Promise).
-// includetext renders the human-readable digits below the bars inside the image.
+// Code128 barcode → PNG buffer.
+// includetext renders human-readable digits below the bars inside the PNG;
+// pdf-lib's drawImage width/height then scales it to the desired size.
 function makeBarcodeBuffer(text) {
   return new Promise((resolve, reject) => {
     bwipjs.toBuffer(
-      { bcid: 'code128', text, scale: 2, height: 10, includetext: true, textxalign: 'center', backgroundcolor: 'ffffff' },
+      {
+        bcid: 'code128',
+        text,
+        scale: 3,
+        height: 12,
+        includetext: true,
+        textxalign: 'center',
+        backgroundcolor: 'ffffff',
+      },
       (err, png) => (err ? reject(err) : resolve(png)),
     );
   });
 }
 
-// Converts a top-left-down visual offset to pdf-lib bottom-left coords for a cell.
-// bottomY = page-bottom of the cell; topY = page-top of the cell.
 function cellCoords(col, row) {
   const x       = col * CELL_W;
   const bottomY = PAGE_H - (row + 1) * CELL_H;
@@ -106,15 +145,18 @@ function cellCoords(col, row) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PDF GENERATORS
-// Both accept a pre-fetched bgBytes buffer (may be null → gray placeholder).
-// The buffer is embedded into the pdf document ONCE, then reused for every cell.
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function generateFrontPdf(flyers, bgBytes) {
+// fontBytes: Montserrat ExtraBold TTF as Buffer, or null (falls back to Helvetica).
+async function generateFrontPdf(flyers, bgBytes, fontBytes) {
   const pdfDoc = await PDFDocument.create();
-  const font   = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-  // Embed background ONCE — reused for all cells across all pages.
+  // Embed Montserrat ExtraBold if available, otherwise fall back to Helvetica Bold.
+  const font = fontBytes
+    ? await pdfDoc.embedFont(fontBytes)
+    : await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+  // Embed background ONCE — reused for every cell across all pages.
   const bgImage = bgBytes ? await embedImageBuf(pdfDoc, bgBytes) : null;
 
   const perPage  = COLS * ROWS;
@@ -131,6 +173,7 @@ async function generateFrontPdf(flyers, bgBytes) {
       const row = Math.floor(slot / COLS);
       const { x, bottomY, topY } = cellCoords(col, row);
 
+      // Background
       if (bgImage) {
         page.drawImage(bgImage, { x, y: bottomY, width: CELL_W, height: CELL_H });
       } else {
@@ -140,7 +183,7 @@ async function generateFrontPdf(flyers, bgBytes) {
         });
       }
 
-      // Primary large number (e.g. "17")
+      // Primary large number (e.g. "17") — Y offset from cell TOP, going down.
       page.drawText(String(flyers[idx].discountPercent), {
         x:     x + TEXT_PERCENT_OFFSET_X,
         y:     topY - TEXT_PERCENT_OFFSET_Y,
@@ -149,10 +192,11 @@ async function generateFrontPdf(flyers, bgBytes) {
         color: TEXT_PERCENT_COLOR,
       });
 
-      // Secondary small label (e.g. "17%") — sits just before "chegirmani qo'lga kiriting!"
+      // Secondary label (e.g. "17%") — Y offset from cell BOTTOM, going up.
+      // Increase TEXT_SECONDARY_OFFSET_Y to push text higher on the page.
       page.drawText(`${flyers[idx].discountPercent}%`, {
         x:     x + TEXT_SECONDARY_OFFSET_X,
-        y:     topY - TEXT_SECONDARY_OFFSET_Y,
+        y:     bottomY + TEXT_SECONDARY_OFFSET_Y,
         size:  TEXT_SECONDARY_SIZE,
         font,
         color: TEXT_SECONDARY_COLOR,
@@ -166,7 +210,7 @@ async function generateFrontPdf(flyers, bgBytes) {
 async function generateBackPdf(flyers, bgBytes) {
   const pdfDoc = await PDFDocument.create();
 
-  // Embed background ONCE — reused for all cells across all pages.
+  // Embed background ONCE — reused for every cell across all pages.
   const bgImage = bgBytes ? await embedImageBuf(pdfDoc, bgBytes) : null;
 
   const perPage  = COLS * ROWS;
@@ -181,8 +225,9 @@ async function generateBackPdf(flyers, bgBytes) {
 
       const col = slot % COLS;
       const row = Math.floor(slot / COLS);
-      const { x, bottomY, topY } = cellCoords(col, row);
+      const { x, bottomY } = cellCoords(col, row);
 
+      // Background
       if (bgImage) {
         page.drawImage(bgImage, { x, y: bottomY, width: CELL_W, height: CELL_H });
       } else {
@@ -192,13 +237,12 @@ async function generateBackPdf(flyers, bgBytes) {
         });
       }
 
-      // Generate barcode strictly awaited before embedding — unique per flyer.
-      // Y = bottomY + BARCODE_OFFSET_Y: offset measured from cell bottom upward
-      // (pdf-lib native convention — decrease BARCODE_OFFSET_Y to move lower).
+      // Barcode — strictly awaited, unique per flyer.
+      // Horizontally centered within the cell; Y is from cell bottom (pdf-lib native).
       const barcodePng   = await makeBarcodeBuffer(flyers[idx].barcode);
       const barcodeImage = await pdfDoc.embedPng(barcodePng);
       page.drawImage(barcodeImage, {
-        x:      x + BARCODE_OFFSET_X,
+        x:      x + (CELL_W - BARCODE_WIDTH) / 2,  // auto-center within white box
         y:      bottomY + BARCODE_OFFSET_Y,
         width:  BARCODE_WIDTH,
         height: BARCODE_HEIGHT,
@@ -232,34 +276,34 @@ async function sendDocumentToTelegram(botToken, chatId, pdfBuffer, filename, cap
 // ─────────────────────────────────────────────────────────────────────────────
 // MAIN ENTRY
 //
-// Execution order that guarantees no race conditions:
-//   1. Pre-fetch BOTH background images (parallel, fully awaited before any PDF work)
-//   2. Generate BOTH PDFs (parallel, images already in memory — no network I/O)
-//   3. Send front PDF to Telegram, then back PDF
+//   1. Pre-fetch font + both background images in parallel (all fully awaited)
+//   2. Generate both PDFs in parallel (zero network I/O at this stage)
+//   3. Send front PDF → then back PDF to Telegram
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function processAndSendFlyers(chatId, flyers, botToken) {
-  // ── Step 1: Pre-fetch both background images ──────────────────────────────
-  // Both HTTP requests run in parallel, but Promise.all ensures NEITHER PDF
-  // generation starts until BOTH buffers are fully downloaded and in memory.
-  console.log('[pdf] fetching background images...');
-  const [frontImgBuf, backImgBuf] = await Promise.all([
+  // Step 1 — fetch all assets upfront; nothing starts until every buffer is ready.
+  console.log('[pdf] fetching assets (font + background images)...');
+  const [fontBytes, frontImgBuf, backImgBuf] = await Promise.all([
+    fetchFontBytes(MONTSERRAT_EXTRABOLD_URL),
     fetchImageRaw(FRONT_IMAGE_URL),
     fetchImageRaw(BACK_IMAGE_URL),
   ]);
   console.log(
-    `[pdf] images ready — front: ${frontImgBuf?.length ?? 'null'}B  back: ${backImgBuf?.length ?? 'null'}B`,
+    `[pdf] assets ready — font: ${fontBytes?.length ?? 'null'}B` +
+    `  front: ${frontImgBuf?.length ?? 'null'}B` +
+    `  back: ${backImgBuf?.length ?? 'null'}B`,
   );
 
-  // ── Step 2: Generate both PDFs (no network calls for images) ─────────────
+  // Step 2 — generate both PDFs in parallel (all data already in memory).
   console.log(`[pdf] generating PDFs for ${flyers.length} flyers...`);
   const [frontBuf, backBuf] = await Promise.all([
-    generateFrontPdf(flyers, frontImgBuf),
+    generateFrontPdf(flyers, frontImgBuf, fontBytes),
     generateBackPdf(flyers, backImgBuf),
   ]);
   console.log(`[pdf] PDFs ready — front: ${frontBuf.length}B  back: ${backBuf.length}B`);
 
-  // ── Step 3: Send to Telegram ──────────────────────────────────────────────
+  // Step 3 — deliver to Telegram.
   await sendDocumentToTelegram(botToken, chatId, frontBuf, 'Flyers_Front.pdf', 'Флайер — олдинги томон 🎟️');
   await sendDocumentToTelegram(botToken, chatId, backBuf,  'Flyers_Back.pdf',  'Флайер — орқа томон 🔖');
   console.log('[pdf] both documents delivered to Telegram');
