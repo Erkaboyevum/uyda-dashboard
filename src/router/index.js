@@ -44,6 +44,11 @@ const routes = [
     name: 'DocumentCreate',
     component: () => import('@/views/DocumentCreate.vue'),
   },
+  {
+    path: '/flyer/new',
+    name: 'FlyerCreate',
+    component: () => import('@/views/FlyerCreate.vue'),
+  },
   // Legacy redirects
   { path: '/documents',  redirect: '/app/moliya' },
   { path: '/profileedit', redirect: '/profileEdit' },

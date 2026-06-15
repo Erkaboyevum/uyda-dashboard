@@ -84,6 +84,17 @@ export default {
     submitSuccess: "Документ успешно создан ✓",
     addDocument:   "Добавить документ",
   },
+  flyer: {
+    createFlyer:              "Создать флаер",
+    counterparty:             "Контрагент",
+    discountPercent:          "Процент скидки",
+    flyerQuantity:            "Количество флаеров",
+    discountPercentPlaceholder: "Например: 10",
+    flyerQuantityPlaceholder: "Например: 100",
+    create:                   "Создать",
+    createSuccess:            "Флаер успешно создан ✓",
+    addFlyer:                 "Создать флаер",
+  },
   errors: {
     requiredField: "Пожалуйста, заполните все обязательные поля.",
     saveFailed:    "Ошибка сохранения. Попробуйте снова.",

@@ -72,12 +72,23 @@
       />
     </div>
 
+    <!-- ── Flyer FAB ── -->
+    <button class="fab" :aria-label="t('flyer.addFlyer')" @click="goCreateFlyer">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <line x1="12" y1="11" x2="12" y2="17"/>
+        <line x1="9" y1="14" x2="15" y2="14"/>
+      </svg>
+    </button>
+
   </div>
 </template>
 
 <script setup>
 import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useRouter } from 'vue-router';
 import { useOrderAnalysis } from '@/composables/useOrderAnalysis';
 
 import FilterPanel             from '@/components/analytics/FilterPanel.vue';
@@ -89,8 +100,14 @@ import CardSkeleton            from '@/components/analytics/Skeletons/CardSkelet
 import ChartSkeleton           from '@/components/analytics/Skeletons/ChartSkeleton.vue';
 import OrderList               from '@/components/analytics/Orders/OrderList.vue';
 const { t } = useI18n();
+const router = useRouter();
 
 const activeTab = ref('analytics');
+
+function goCreateFlyer() {
+  window.Telegram?.WebApp?.HapticFeedback?.impactOccurred?.('medium');
+  router.push('/flyer/new');
+}
 
 function activateTab(tab) {
   window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
@@ -173,5 +190,27 @@ const {
 .skel-row {
   display: flex; gap: 10px;
   padding: 12px 16px; overflow-x: auto; scrollbar-width: none;
+}
+
+/* ── Flyer FAB ── */
+.fab {
+  position: fixed;
+  right: 20px;
+  bottom: calc(var(--bar-h, 64px) + var(--sab, 0px) + 20px);
+  width: 52px; height: 52px;
+  border: none;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #2563EB 0%, #6B21A8 100%);
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 6px 20px rgba(37,99,235,0.40);
+  cursor: pointer;
+  z-index: 50;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 150ms ease, box-shadow 200ms ease;
+}
+.fab:active {
+  transform: scale(0.92);
+  box-shadow: 0 3px 12px rgba(37,99,235,0.35);
 }
 </style>

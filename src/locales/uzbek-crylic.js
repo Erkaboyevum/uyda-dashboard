@@ -84,6 +84,17 @@ export default {
     submitSuccess: "Ҳужжат муваффақиятли яратилди ✓",
     addDocument:   "Ҳужжат қўшиш",
   },
+  flyer: {
+    createFlyer:              "Флайер яратиш",
+    counterparty:             "Контрагент",
+    discountPercent:          "Чегирма фоизи",
+    flyerQuantity:            "Флайерлар сони",
+    discountPercentPlaceholder: "Масалан: 10",
+    flyerQuantityPlaceholder: "Масалан: 100",
+    create:                   "Яратиш",
+    createSuccess:            "Флайер муваффақиятли яратилди ✓",
+    addFlyer:                 "Флайер яратиш",
+  },
   errors: {
     requiredField: "Илтимос, барча мажбурий майдонларни тўлдиринг.",
     saveFailed:    "Маълумотни сақлашда хатолик. Қайта уриниб кўринг.",
