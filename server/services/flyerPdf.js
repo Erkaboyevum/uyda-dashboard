@@ -2,6 +2,10 @@ import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import bwipjs from 'bwip-js';
 import axios from 'axios';
 import FormData from 'form-data';
+import https from 'https';
+
+// Allow self-signed / incomplete chains on the CDN only
+const cdnAgent = new https.Agent({ rejectUnauthorized: false });
 
 // ─────────────────────────────────────────────────────────────────────────────
 // LAYOUT CONFIG — adjust these to change the grid without touching logic
@@ -66,16 +70,28 @@ const BACK_IMAGE_URL  = 'https://cdn.erkaboyev.uz/Flyer/Flyer_back.png';
 // Simple in-process cache so the two images are only downloaded once per run.
 const _imageCache = new Map();
 
+/**
+ * Download a PNG from url. Returns the buffer, or null if the image is not yet
+ * available (404 / network error) — callers fall back to a placeholder fill.
+ */
 async function fetchPng(url) {
   if (_imageCache.has(url)) return _imageCache.get(url);
 
-  const res = await axios.get(url, {
-    responseType: 'arraybuffer',
-    timeout: 20_000,
-  });
-  const buf = Buffer.from(res.data);
-  _imageCache.set(url, buf);
-  return buf;
+  try {
+    const res = await axios.get(url, {
+      responseType: 'arraybuffer',
+      timeout: 20_000,
+      httpsAgent: cdnAgent,
+      validateStatus: (s) => s === 200,
+    });
+    const buf = Buffer.from(res.data);
+    _imageCache.set(url, buf);
+    return buf;
+  } catch (err) {
+    console.warn(`[flyerPdf] image unavailable (${url}): ${err.message} — using placeholder`);
+    _imageCache.set(url, null); // don't re-request on every flyer batch
+    return null;
+  }
 }
 
 /**
@@ -119,7 +135,7 @@ export async function generateFrontPdf(flyers) {
   ]);
 
   const font    = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-  const bgImage = await pdfDoc.embedPng(bgBytes);
+  const bgImage = bgBytes ? await pdfDoc.embedPng(bgBytes) : null;
 
   const perPage = COLS * ROWS;
   const numPages = Math.ceil(flyers.length / perPage);
@@ -136,11 +152,13 @@ export async function generateFrontPdf(flyers) {
       const { x: cx, y: cy } = cellOrigin(col, row);
       const discount   = String(flyers[idx].discountPercent);
 
-      // Background image fills the entire cell
-      page.drawImage(bgImage, {
-        x: cx, y: cy,
-        width: CELL_W, height: CELL_H,
-      });
+      // Background — real image or light-gray placeholder
+      if (bgImage) {
+        page.drawImage(bgImage, { x: cx, y: cy, width: CELL_W, height: CELL_H });
+      } else {
+        page.drawRectangle({ x: cx, y: cy, width: CELL_W, height: CELL_H,
+          color: rgb(0.93, 0.93, 0.93), borderColor: rgb(0.7, 0.7, 0.7), borderWidth: 1 });
+      }
 
       // Large discount number next to the golden % glyph
       page.drawText(discount, {
@@ -175,7 +193,7 @@ export async function generateBackPdf(flyers) {
     fetchPng(BACK_IMAGE_URL),
   ]);
 
-  const bgImage = await pdfDoc.embedPng(bgBytes);
+  const bgImage = bgBytes ? await pdfDoc.embedPng(bgBytes) : null;
 
   const perPage = COLS * ROWS;
   const numPages = Math.ceil(flyers.length / perPage);
@@ -191,11 +209,13 @@ export async function generateBackPdf(flyers) {
       const row        = Math.floor(slot / COLS);
       const { x: cx, y: cy } = cellOrigin(col, row);
 
-      // Background image fills the entire cell
-      page.drawImage(bgImage, {
-        x: cx, y: cy,
-        width: CELL_W, height: CELL_H,
-      });
+      // Background — real image or light-gray placeholder
+      if (bgImage) {
+        page.drawImage(bgImage, { x: cx, y: cy, width: CELL_W, height: CELL_H });
+      } else {
+        page.drawRectangle({ x: cx, y: cy, width: CELL_W, height: CELL_H,
+          color: rgb(0.93, 0.93, 0.93), borderColor: rgb(0.7, 0.7, 0.7), borderWidth: 1 });
+      }
 
       // Generate barcode and embed — each flyer gets its own unique barcode
       const barcodePng   = await makeBarcodeBuffer(flyers[idx].barcode);
