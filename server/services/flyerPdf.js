@@ -24,7 +24,7 @@ const CELL_H = PAGE_H / ROWS;   // = 595.5  pt
 // Offsets from FLYER top-left corner; Y increases DOWNWARD.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const TEXT_PERCENT_OFFSET_X = 80;
+const TEXT_PERCENT_OFFSET_X = 89;
 const TEXT_PERCENT_OFFSET_Y = 214;
 const TEXT_PERCENT_SIZE     = 82;
 const TEXT_PERCENT_COLOR    = rgb(1, 1, 1);
@@ -114,6 +114,17 @@ function makeBarcodeBuffer(text) {
   });
 }
 
+// Draws text with a multi-layer 3D extrusion effect (deep shadow → main text).
+function draw3DText(page, text, { x, y, size, font, color }) {
+  const depth = 5;
+  for (let i = depth; i >= 1; i--) {
+    const t = i / depth;
+    const sc = rgb(0.15 + (1 - t) * 0.25, 0.10 + (1 - t) * 0.20, 0.05 + (1 - t) * 0.10);
+    page.drawText(text, { x: x + i, y: y - i, size, font, color: sc });
+  }
+  page.drawText(text, { x, y, size, font, color });
+}
+
 // Converts a top-left-down visual offset to pdf-lib bottom-left coords for a cell.
 // bottomY = page-bottom of the cell; topY = page-top of the cell.
 function cellCoords(col, row) {
@@ -163,7 +174,7 @@ async function generateFrontPdf(flyers, bgBytes, fontBytes) {
         });
       }
 
-      page.drawText(String(flyers[idx].discountPercent), {
+      draw3DText(page, String(flyers[idx].discountPercent), {
         x:     x + TEXT_PERCENT_OFFSET_X,
         y:     topY - TEXT_PERCENT_OFFSET_Y,
         size:  TEXT_PERCENT_SIZE,
