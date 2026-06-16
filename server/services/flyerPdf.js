@@ -29,6 +29,12 @@ const TEXT_PERCENT_OFFSET_Y = 214;
 const TEXT_PERCENT_SIZE     = 82;
 const TEXT_PERCENT_COLOR    = rgb(1, 1, 1);
 
+// FRONT PDF — secondary "17%" label near "chegirmani qo'lga kiriting" text
+const TEXT_SECONDARY_OFFSET_X = 30;
+const TEXT_SECONDARY_OFFSET_Y = 250;   // pts from cell BOTTOM edge (upward)
+const TEXT_SECONDARY_SIZE     = 24;
+const TEXT_SECONDARY_COLOR    = rgb(0.94, 0.33, 0.21);  // rgb(240,85,54) — flyer rang bilan mos
+
 // ─────────────────────────────────────────────────────────────────────────────
 // BACK PDF — barcode overlay
 // Offsets from FLYER top-left corner; Y increases DOWNWARD.
@@ -174,6 +180,14 @@ async function generateFrontPdf(flyers, bgBytes, fontBytes) {
           color: rgb(0.93, 0.93, 0.93), borderColor: rgb(0.6, 0.6, 0.6), borderWidth: 1,
         });
       }
+
+      page.drawText(`${flyers[idx].discountPercent}%`, {
+        x:     x + TEXT_SECONDARY_OFFSET_X,
+        y:     bottomY + TEXT_SECONDARY_OFFSET_Y,
+        size:  TEXT_SECONDARY_SIZE,
+        font,
+        color: TEXT_SECONDARY_COLOR,
+      });
 
       draw3DText(page, String(flyers[idx].discountPercent), {
         x:     x + TEXT_PERCENT_OFFSET_X,
