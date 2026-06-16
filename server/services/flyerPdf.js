@@ -24,8 +24,8 @@ const CELL_H = PAGE_H / ROWS;   // = 595.5  pt
 // Offsets from FLYER top-left corner; Y increases DOWNWARD.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const TEXT_PERCENT_OFFSET_X = 108;
-const TEXT_PERCENT_OFFSET_Y = 200;
+const TEXT_PERCENT_OFFSET_X = 80;
+const TEXT_PERCENT_OFFSET_Y = 214;
 const TEXT_PERCENT_SIZE     = 82;
 const TEXT_PERCENT_COLOR    = rgb(1, 1, 1);
 
