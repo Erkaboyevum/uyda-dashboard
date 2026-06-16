@@ -120,7 +120,7 @@ function draw3DText(page, text, { x, y, size, font, color }) {
   const depth = 5;
   const SR = 240 / 255, SG = 85 / 255, SB = 54 / 255;
   for (let i = depth; i >= 1; i--) {
-    const brightness = 0.4 + 0.6 * (depth - i) / depth;
+    const brightness = 0.65 + 0.30 * (depth - i) / depth;
     page.drawText(text, { x: x + i, y: y - i, size, font, color: rgb(SR * brightness, SG * brightness, SB * brightness) });
   }
   page.drawText(text, { x, y, size, font, color });
