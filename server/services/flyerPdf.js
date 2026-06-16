@@ -26,7 +26,7 @@ const CELL_H = PAGE_H / ROWS;   // = 595.5  pt
 
 const TEXT_PERCENT_OFFSET_X = 122;
 const TEXT_PERCENT_OFFSET_Y = 200;
-const TEXT_PERCENT_SIZE     = 48;
+const TEXT_PERCENT_SIZE     = 72;
 const TEXT_PERCENT_COLOR    = rgb(1, 1, 1);
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -35,9 +35,9 @@ const TEXT_PERCENT_COLOR    = rgb(1, 1, 1);
 // ─────────────────────────────────────────────────────────────────────────────
 
 const BARCODE_OFFSET_X = 80;
-const BARCODE_OFFSET_Y = 528;
+const BARCODE_OFFSET_Y = 542;
 const BARCODE_WIDTH    = 120;
-const BARCODE_HEIGHT   = 40;
+const BARCODE_HEIGHT   = 28;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CDN IMAGE URLS
@@ -76,7 +76,7 @@ async function embedImageBuf(pdfDoc, buf) {
 function makeBarcodeBuffer(text) {
   return new Promise((resolve, reject) => {
     bwipjs.toBuffer(
-      { bcid: 'code128', text, scale: 2, height: 10, includetext: false, backgroundcolor: 'ffffff' },
+      { bcid: 'code128', text, scale: 2, height: 10, includetext: true, backgroundcolor: 'ffffff' },
       (err, png) => (err ? reject(err) : resolve(png)),
     );
   });
