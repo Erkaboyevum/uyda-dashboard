@@ -24,7 +24,7 @@ const CELL_H = PAGE_H / ROWS;   // = 595.5  pt
 // Offsets from FLYER top-left corner; Y increases DOWNWARD.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const TEXT_PERCENT_OFFSET_X = 122;
+const TEXT_PERCENT_OFFSET_X = 108;
 const TEXT_PERCENT_OFFSET_Y = 200;
 const TEXT_PERCENT_SIZE     = 72;
 const TEXT_PERCENT_COLOR    = rgb(1, 1, 1);
@@ -35,7 +35,7 @@ const TEXT_PERCENT_COLOR    = rgb(1, 1, 1);
 // ─────────────────────────────────────────────────────────────────────────────
 
 const BARCODE_OFFSET_X = 80;
-const BARCODE_OFFSET_Y = 542;
+const BARCODE_OFFSET_Y = 556;
 const BARCODE_WIDTH    = 120;
 const BARCODE_HEIGHT   = 28;
 
@@ -45,6 +45,13 @@ const BARCODE_HEIGHT   = 28;
 
 const FRONT_IMAGE_URL = 'https://cdn.erkaboyev.uz/Flyer/Flyer_front.png';
 const BACK_IMAGE_URL  = 'https://cdn.erkaboyev.uz/Flyer/Flyer_back.png';
+
+// Stable GitHub raw URL for Montserrat ExtraBold TTF (google/fonts repo).
+// Bytes are cached in-process after the first fetch.
+const MONTSERRAT_EXTRABOLD_URL =
+  'https://raw.githubusercontent.com/google/fonts/main/ofl/montserrat/static/Montserrat-ExtraBold.ttf';
+
+let _montserratCache = null;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPERS
@@ -66,17 +73,42 @@ async function fetchImageRaw(url) {
   }
 }
 
+// Font bytes cached in-process; falls back to null (→ HelveticaBold) on failure.
+async function fetchFontBytes(url) {
+  if (_montserratCache) return _montserratCache;
+  try {
+    const res = await axios.get(url, {
+      responseType: 'arraybuffer',
+      timeout: 20_000,
+      validateStatus: s => s === 200,
+    });
+    _montserratCache = Buffer.from(res.data);
+    return _montserratCache;
+  } catch (err) {
+    console.warn(`[pdf] font unavailable (${url}): ${err.message} — HelveticaBold fallback`);
+    return null;
+  }
+}
+
 // Auto-detect JPEG (FF D8) vs PNG (89 50) — CDN serves JPEG with a .png extension.
 async function embedImageBuf(pdfDoc, buf) {
   const isJpeg = buf[0] === 0xFF && buf[1] === 0xD8;
   return isJpeg ? pdfDoc.embedJpg(buf) : pdfDoc.embedPng(buf);
 }
 
-// Code128 barcode → PNG buffer (bwip-js callback API wrapped as a Promise).
+// Code128 barcode → PNG buffer; text rendered in Times-Roman below bars.
 function makeBarcodeBuffer(text) {
   return new Promise((resolve, reject) => {
     bwipjs.toBuffer(
-      { bcid: 'code128', text, scale: 2, height: 10, includetext: true, backgroundcolor: 'ffffff' },
+      {
+        bcid: 'code128',
+        text,
+        scale: 2,
+        height: 10,
+        includetext: true,
+        textfont: 'Times-Roman',
+        backgroundcolor: 'ffffff',
+      },
       (err, png) => (err ? reject(err) : resolve(png)),
     );
   });
@@ -97,9 +129,13 @@ function cellCoords(col, row) {
 // The buffer is embedded into the pdf document ONCE, then reused for every cell.
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function generateFrontPdf(flyers, bgBytes) {
+async function generateFrontPdf(flyers, bgBytes, fontBytes) {
   const pdfDoc = await PDFDocument.create();
-  const font   = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+  // Use Montserrat ExtraBold if available, fall back to HelveticaBold.
+  const font = fontBytes
+    ? await pdfDoc.embedFont(fontBytes)
+    : await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
   // Embed background ONCE — reused for all cells across all pages.
   const bgImage = bgBytes ? await embedImageBuf(pdfDoc, bgBytes) : null;
@@ -208,28 +244,29 @@ async function sendDocumentToTelegram(botToken, chatId, pdfBuffer, filename, cap
 // MAIN ENTRY
 //
 // Execution order that guarantees no race conditions:
-//   1. Pre-fetch BOTH background images (parallel, fully awaited before any PDF work)
-//   2. Generate BOTH PDFs (parallel, images already in memory — no network I/O)
+//   1. Pre-fetch font + BOTH background images (parallel, fully awaited)
+//   2. Generate BOTH PDFs (parallel, all data already in memory)
 //   3. Send front PDF to Telegram, then back PDF
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function processAndSendFlyers(chatId, flyers, botToken) {
-  // ── Step 1: Pre-fetch both background images ──────────────────────────────
-  // Both HTTP requests run in parallel, but Promise.all ensures NEITHER PDF
-  // generation starts until BOTH buffers are fully downloaded and in memory.
-  console.log('[pdf] fetching background images...');
-  const [frontImgBuf, backImgBuf] = await Promise.all([
+  // ── Step 1: Pre-fetch font + both background images ───────────────────────
+  console.log('[pdf] fetching assets (font + background images)...');
+  const [fontBytes, frontImgBuf, backImgBuf] = await Promise.all([
+    fetchFontBytes(MONTSERRAT_EXTRABOLD_URL),
     fetchImageRaw(FRONT_IMAGE_URL),
     fetchImageRaw(BACK_IMAGE_URL),
   ]);
   console.log(
-    `[pdf] images ready — front: ${frontImgBuf?.length ?? 'null'}B  back: ${backImgBuf?.length ?? 'null'}B`,
+    `[pdf] assets ready — font: ${fontBytes?.length ?? 'null'}B` +
+    `  front: ${frontImgBuf?.length ?? 'null'}B` +
+    `  back: ${backImgBuf?.length ?? 'null'}B`,
   );
 
   // ── Step 2: Generate both PDFs (no network calls for images) ─────────────
   console.log(`[pdf] generating PDFs for ${flyers.length} flyers...`);
   const [frontBuf, backBuf] = await Promise.all([
-    generateFrontPdf(flyers, frontImgBuf),
+    generateFrontPdf(flyers, frontImgBuf, fontBytes),
     generateBackPdf(flyers, backImgBuf),
   ]);
   console.log(`[pdf] PDFs ready — front: ${frontBuf.length}B  back: ${backBuf.length}B`);
