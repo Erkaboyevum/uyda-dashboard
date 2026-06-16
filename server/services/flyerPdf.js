@@ -115,12 +115,13 @@ function makeBarcodeBuffer(text) {
 }
 
 // Draws text with a multi-layer 3D extrusion effect (deep shadow → main text).
+// Shadow color base: rgb(240, 85, 54) — to'q sariq-to'q.
 function draw3DText(page, text, { x, y, size, font, color }) {
   const depth = 5;
+  const SR = 240 / 255, SG = 85 / 255, SB = 54 / 255;
   for (let i = depth; i >= 1; i--) {
-    const t = i / depth;
-    const sc = rgb(0.15 + (1 - t) * 0.25, 0.10 + (1 - t) * 0.20, 0.05 + (1 - t) * 0.10);
-    page.drawText(text, { x: x + i, y: y - i, size, font, color: sc });
+    const brightness = 0.4 + 0.6 * (depth - i) / depth;
+    page.drawText(text, { x: x + i, y: y - i, size, font, color: rgb(SR * brightness, SG * brightness, SB * brightness) });
   }
   page.drawText(text, { x, y, size, font, color });
 }
