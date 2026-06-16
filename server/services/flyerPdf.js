@@ -31,9 +31,9 @@ const TEXT_PERCENT_COLOR    = rgb(1, 1, 1);
 
 // FRONT PDF — secondary "17%" label near "chegirmani qo'lga kiriting" text
 const TEXT_SECONDARY_OFFSET_X = 30;
-const TEXT_SECONDARY_OFFSET_Y = 250;   // pts from cell BOTTOM edge (upward)
-const TEXT_SECONDARY_SIZE     = 24;
-const TEXT_SECONDARY_COLOR    = rgb(0.94, 0.33, 0.21);  // rgb(240,85,54) — flyer rang bilan mos
+const TEXT_SECONDARY_OFFSET_Y = 278;   // pts from cell BOTTOM edge (upward)
+const TEXT_SECONDARY_SIZE     = 13;
+const TEXT_SECONDARY_COLOR    = rgb(1, 1, 1);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // BACK PDF — barcode overlay
@@ -52,12 +52,12 @@ const BARCODE_HEIGHT   = 28;
 const FRONT_IMAGE_URL = 'https://cdn.erkaboyev.uz/Flyer/Flyer_front.png';
 const BACK_IMAGE_URL  = 'https://cdn.erkaboyev.uz/Flyer/Flyer_back.png';
 
-// Stable GitHub raw URL for Fredoka One TTF (google/fonts repo).
-// Bytes are cached in-process after the first fetch.
-const PERCENT_FONT_URL =
-  'https://raw.githubusercontent.com/google/fonts/main/ofl/fredokaone/FredokaOne-Regular.ttf';
+// Font URLs — cached in-process after first fetch.
+const FREDOKA_URL      = 'https://raw.githubusercontent.com/google/fonts/main/ofl/fredokaone/FredokaOne-Regular.ttf';
+const MONTSERRAT_URL   = 'https://raw.githubusercontent.com/google/fonts/main/ofl/montserrat/static/Montserrat-ExtraBold.ttf';
 
-let _fontCache = null;
+let _fredokaCache    = null;
+let _montserratCache = null;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPERS
@@ -79,19 +79,27 @@ async function fetchImageRaw(url) {
   }
 }
 
-// Font bytes cached in-process; falls back to null (→ HelveticaBold) on failure.
-async function fetchFontBytes(url) {
-  if (_fontCache) return _fontCache;
+// Font bytes cached in-process; returns null on failure (→ HelveticaBold fallback).
+async function fetchFredoka() {
+  if (_fredokaCache) return _fredokaCache;
   try {
-    const res = await axios.get(url, {
-      responseType: 'arraybuffer',
-      timeout: 20_000,
-      validateStatus: s => s === 200,
-    });
-    _fontCache = Buffer.from(res.data);
-    return _fontCache;
+    const res = await axios.get(FREDOKA_URL, { responseType: 'arraybuffer', timeout: 20_000, validateStatus: s => s === 200 });
+    _fredokaCache = Buffer.from(res.data);
+    return _fredokaCache;
   } catch (err) {
-    console.warn(`[pdf] font unavailable (${url}): ${err.message} — HelveticaBold fallback`);
+    console.warn(`[pdf] Fredoka font unavailable: ${err.message} — HelveticaBold fallback`);
+    return null;
+  }
+}
+
+async function fetchMontserrat() {
+  if (_montserratCache) return _montserratCache;
+  try {
+    const res = await axios.get(MONTSERRAT_URL, { responseType: 'arraybuffer', timeout: 20_000, validateStatus: s => s === 200 });
+    _montserratCache = Buffer.from(res.data);
+    return _montserratCache;
+  } catch (err) {
+    console.warn(`[pdf] Montserrat font unavailable: ${err.message} — HelveticaBold fallback`);
     return null;
   }
 }
@@ -147,13 +155,11 @@ function cellCoords(col, row) {
 // The buffer is embedded into the pdf document ONCE, then reused for every cell.
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function generateFrontPdf(flyers, bgBytes, fontBytes) {
+async function generateFrontPdf(flyers, bgBytes, fredokaBytes, montserratBytes) {
   const pdfDoc = await PDFDocument.create();
 
-  // Use Montserrat ExtraBold if available, fall back to HelveticaBold.
-  const font = fontBytes
-    ? await pdfDoc.embedFont(fontBytes)
-    : await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  const font           = fredokaBytes    ? await pdfDoc.embedFont(fredokaBytes)    : await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  const secondaryFont  = montserratBytes ? await pdfDoc.embedFont(montserratBytes) : await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
   // Embed background ONCE — reused for all cells across all pages.
   const bgImage = bgBytes ? await embedImageBuf(pdfDoc, bgBytes) : null;
@@ -185,7 +191,7 @@ async function generateFrontPdf(flyers, bgBytes, fontBytes) {
         x:     x + TEXT_SECONDARY_OFFSET_X,
         y:     bottomY + TEXT_SECONDARY_OFFSET_Y,
         size:  TEXT_SECONDARY_SIZE,
-        font,
+        font:  secondaryFont,
         color: TEXT_SECONDARY_COLOR,
       });
 
@@ -276,15 +282,17 @@ async function sendDocumentToTelegram(botToken, chatId, pdfBuffer, filename, cap
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function processAndSendFlyers(chatId, flyers, botToken) {
-  // ── Step 1: Pre-fetch font + both background images ───────────────────────
-  console.log('[pdf] fetching assets (font + background images)...');
-  const [fontBytes, frontImgBuf, backImgBuf] = await Promise.all([
-    fetchFontBytes(PERCENT_FONT_URL),
+  // ── Step 1: Pre-fetch fonts + both background images ─────────────────────
+  console.log('[pdf] fetching assets (fonts + background images)...');
+  const [fredokaBytes, montserratBytes, frontImgBuf, backImgBuf] = await Promise.all([
+    fetchFredoka(),
+    fetchMontserrat(),
     fetchImageRaw(FRONT_IMAGE_URL),
     fetchImageRaw(BACK_IMAGE_URL),
   ]);
   console.log(
-    `[pdf] assets ready — font: ${fontBytes?.length ?? 'null'}B` +
+    `[pdf] assets ready — fredoka: ${fredokaBytes?.length ?? 'null'}B` +
+    `  montserrat: ${montserratBytes?.length ?? 'null'}B` +
     `  front: ${frontImgBuf?.length ?? 'null'}B` +
     `  back: ${backImgBuf?.length ?? 'null'}B`,
   );
@@ -292,7 +300,7 @@ export async function processAndSendFlyers(chatId, flyers, botToken) {
   // ── Step 2: Generate both PDFs (no network calls for images) ─────────────
   console.log(`[pdf] generating PDFs for ${flyers.length} flyers...`);
   const [frontBuf, backBuf] = await Promise.all([
-    generateFrontPdf(flyers, frontImgBuf, fontBytes),
+    generateFrontPdf(flyers, frontImgBuf, fredokaBytes, montserratBytes),
     generateBackPdf(flyers, backImgBuf),
   ]);
   console.log(`[pdf] PDFs ready — front: ${frontBuf.length}B  back: ${backBuf.length}B`);
