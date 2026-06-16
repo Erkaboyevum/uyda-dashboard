@@ -30,8 +30,8 @@ const TEXT_PERCENT_SIZE     = 82;
 const TEXT_PERCENT_COLOR    = rgb(1, 1, 1);
 
 // FRONT PDF — secondary "17%" label near "chegirmani qo'lga kiriting" text
-const TEXT_SECONDARY_OFFSET_X = 30;
-const TEXT_SECONDARY_OFFSET_Y = 278;   // pts from cell BOTTOM edge (upward)
+const TEXT_SECONDARY_OFFSET_X = 36;
+const TEXT_SECONDARY_OFFSET_Y = 281;   // pts from cell BOTTOM edge (upward)
 const TEXT_SECONDARY_SIZE     = 13;
 const TEXT_SECONDARY_COLOR    = rgb(1, 1, 1);
 
@@ -187,13 +187,12 @@ async function generateFrontPdf(flyers, bgBytes, fredokaBytes, montserratBytes) 
         });
       }
 
-      page.drawText(`${flyers[idx].discountPercent}%`, {
-        x:     x + TEXT_SECONDARY_OFFSET_X,
-        y:     bottomY + TEXT_SECONDARY_OFFSET_Y,
-        size:  TEXT_SECONDARY_SIZE,
-        font:  secondaryFont,
-        color: TEXT_SECONDARY_COLOR,
-      });
+      const secX = x + TEXT_SECONDARY_OFFSET_X;
+      const secY = bottomY + TEXT_SECONDARY_OFFSET_Y;
+      const secT = `${flyers[idx].discountPercent}%`;
+      // Draw twice with 0.4pt offset — fake-bold for small sizes
+      page.drawText(secT, { x: secX + 0.4, y: secY, size: TEXT_SECONDARY_SIZE, font: secondaryFont, color: TEXT_SECONDARY_COLOR });
+      page.drawText(secT, { x: secX,       y: secY, size: TEXT_SECONDARY_SIZE, font: secondaryFont, color: TEXT_SECONDARY_COLOR });
 
       draw3DText(page, String(flyers[idx].discountPercent), {
         x:     x + TEXT_PERCENT_OFFSET_X,
