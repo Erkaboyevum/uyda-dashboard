@@ -24,7 +24,7 @@ const CELL_H = PAGE_H / ROWS;   // = 595.5  pt
 // Offsets from FLYER top-left corner; Y increases DOWNWARD.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const TEXT_PERCENT_OFFSET_X = 150;
+const TEXT_PERCENT_OFFSET_X = 122;
 const TEXT_PERCENT_OFFSET_Y = 200;
 const TEXT_PERCENT_SIZE     = 48;
 const TEXT_PERCENT_COLOR    = rgb(1, 1, 1);
@@ -35,7 +35,7 @@ const TEXT_PERCENT_COLOR    = rgb(1, 1, 1);
 // ─────────────────────────────────────────────────────────────────────────────
 
 const BARCODE_OFFSET_X = 80;
-const BARCODE_OFFSET_Y = 500;
+const BARCODE_OFFSET_Y = 528;
 const BARCODE_WIDTH    = 120;
 const BARCODE_HEIGHT   = 40;
 
