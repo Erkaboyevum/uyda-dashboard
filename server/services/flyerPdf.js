@@ -26,7 +26,7 @@ const CELL_H = PAGE_H / ROWS;   // = 595.5  pt
 
 const TEXT_PERCENT_OFFSET_X = 108;
 const TEXT_PERCENT_OFFSET_Y = 200;
-const TEXT_PERCENT_SIZE     = 72;
+const TEXT_PERCENT_SIZE     = 82;
 const TEXT_PERCENT_COLOR    = rgb(1, 1, 1);
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -35,7 +35,7 @@ const TEXT_PERCENT_COLOR    = rgb(1, 1, 1);
 // ─────────────────────────────────────────────────────────────────────────────
 
 const BARCODE_OFFSET_X = 80;
-const BARCODE_OFFSET_Y = 556;
+const BARCODE_OFFSET_Y = 550;
 const BARCODE_WIDTH    = 120;
 const BARCODE_HEIGHT   = 28;
 
@@ -46,12 +46,12 @@ const BARCODE_HEIGHT   = 28;
 const FRONT_IMAGE_URL = 'https://cdn.erkaboyev.uz/Flyer/Flyer_front.png';
 const BACK_IMAGE_URL  = 'https://cdn.erkaboyev.uz/Flyer/Flyer_back.png';
 
-// Stable GitHub raw URL for Montserrat ExtraBold TTF (google/fonts repo).
+// Stable GitHub raw URL for Fredoka One TTF (google/fonts repo).
 // Bytes are cached in-process after the first fetch.
-const MONTSERRAT_EXTRABOLD_URL =
-  'https://raw.githubusercontent.com/google/fonts/main/ofl/montserrat/static/Montserrat-ExtraBold.ttf';
+const PERCENT_FONT_URL =
+  'https://raw.githubusercontent.com/google/fonts/main/ofl/fredokaone/FredokaOne-Regular.ttf';
 
-let _montserratCache = null;
+let _fontCache = null;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPERS
@@ -75,15 +75,15 @@ async function fetchImageRaw(url) {
 
 // Font bytes cached in-process; falls back to null (→ HelveticaBold) on failure.
 async function fetchFontBytes(url) {
-  if (_montserratCache) return _montserratCache;
+  if (_fontCache) return _fontCache;
   try {
     const res = await axios.get(url, {
       responseType: 'arraybuffer',
       timeout: 20_000,
       validateStatus: s => s === 200,
     });
-    _montserratCache = Buffer.from(res.data);
-    return _montserratCache;
+    _fontCache = Buffer.from(res.data);
+    return _fontCache;
   } catch (err) {
     console.warn(`[pdf] font unavailable (${url}): ${err.message} — HelveticaBold fallback`);
     return null;
@@ -253,7 +253,7 @@ export async function processAndSendFlyers(chatId, flyers, botToken) {
   // ── Step 1: Pre-fetch font + both background images ───────────────────────
   console.log('[pdf] fetching assets (font + background images)...');
   const [fontBytes, frontImgBuf, backImgBuf] = await Promise.all([
-    fetchFontBytes(MONTSERRAT_EXTRABOLD_URL),
+    fetchFontBytes(PERCENT_FONT_URL),
     fetchImageRaw(FRONT_IMAGE_URL),
     fetchImageRaw(BACK_IMAGE_URL),
   ]);
