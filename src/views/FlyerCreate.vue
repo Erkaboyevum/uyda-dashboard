@@ -105,7 +105,7 @@ import axios from 'axios';
 const { t } = useI18n();
 const router = useRouter();
 
-const FLYER_BASE    = 'https://api.erkaboyev.uz/Golddishes_test/hs/flyers';
+const FLYER_BASE    = 'https://api.erkaboyev.uz/Golddishes/hs/flyers';
 const FALLBACK_CHAT_ID = '1319223069';
 
 const chatId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id
