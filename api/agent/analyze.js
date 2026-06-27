@@ -13,26 +13,23 @@ export default async function handler(req, res) {
     return res.status(500).json({ detail: 'GEMINI_API_KEY serverda sozlanmagan' });
   }
 
-  const prompt = `Foydalanuvchining ushbu moliyaviy buyrug'ini tahlil qil va FAQAT JSON formatida javob qaytar.
-Hech qanday kirish so'zi, tushuntirish yoki salomlashish yozma! Faqat va faqat quyidagi tuzilishdagi JSONni qaytar:
+  // System instruction orqali modelni faqat JSON chiqarishga majburlash
+  const systemInstruction = `Sen moliyaviy buyruqlarni tahlil qiladigan JSON generatorsan.
+QOIDA: Har doim FAQAT sof JSON obyekti qaytar. Hech qanday markdown, kod bloki, izoh, tushuntirish YOZMA.
+Javob to'g'ridan-to'g'ri { bilan boshlanishi va } bilan tugashi SHART.`;
 
-{
-  "document_type": "Приход" yoki "Расход" (chiqim/rasxod bo'lsa "Расход", tushum/kirim bo'lsa "Приход"),
-  "sum_amount": 200000,
-  "operation": "На расходы" yoki "Поставщику" yoki "Инвестиции",
-  "action_type": "Kommunal to'lov bo'lsa 'Коммунальные', boshqa xarajat bo'lsa 'Прочие'",
-  "comment": "qisqa izoh"
-}
+  const userPrompt = `Quyidagi o'zbekcha moliyaviy buyruqni tahlil qil:
+"${String(text).trim()}"
+
+Quyidagi JSON tuzilishida javob qaytar (boshqa hech narsa yozma):
+{"document_type":"...","sum_amount":0,"operation":"...","action_type":"...","comment":"..."}
 
 Qoidalar:
-- "ming" so'zi = 3 ta nol (200 ming = 200000)
-- "mln" yoki "million" = 6 ta nol (2 mln = 2000000)
-- Kirim/tushum/olindi = "Приход"
-- Chiqim/rasxod/to'landi/qilindi = "Расход"
-- Kommunal, elektr, gaz, suv → action_type = "Коммунальные"
-- Boshqa barcha xarajat → action_type = "Прочие"
-
-Foydalanuvchi buyrug'i: "${String(text).trim()}"`;
+- document_type: "Приход" (kirim/tushum/olindi) yoki "Расход" (chiqim/to'landi/sarflandi)
+- sum_amount: faqat raqam. "ming"=×1000, "mln"/"million"=×1000000
+- operation (faqat Расход uchun): "На расходы" yoki "Поставщику" yoki "Инвестиции"
+- action_type: elektr/gaz/suv/kommunal bo'lsa "Коммунальные", aks holda "Прочие"
+- comment: 3-5 so'zlik qisqa izoh`;
 
   try {
     const geminiRes = await fetch(
@@ -41,8 +38,13 @@ Foydalanuvchi buyrug'i: "${String(text).trim()}"`;
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0, maxOutputTokens: 512 },
+          system_instruction: { parts: [{ text: systemInstruction }] },
+          contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+          generationConfig: {
+            temperature: 0,
+            maxOutputTokens: 256,
+            responseMimeType: 'application/json',
+          },
         }),
       }
     );
@@ -53,18 +55,23 @@ Foydalanuvchi buyrug'i: "${String(text).trim()}"`;
     }
 
     const geminiData = await geminiRes.json();
-    const rawText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
-    const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      return res.status(422).json({ detail: 'AI javobidan JSON topilmadi. Buyruqni aniqroq yozing.' });
+    // Barcha parts ichidan matn yig'amiz (thinking modellar bir nechta part chiqarishi mumkin)
+    const parts = geminiData?.candidates?.[0]?.content?.parts || [];
+    const rawText = parts.map(p => p.text || '').join('').trim();
+
+    const parsed = extractJson(rawText);
+    if (!parsed) {
+      // Debug uchun xom javobni loglash
+      console.error('[analyze] JSON topilmadi. Raw:', rawText.slice(0, 500));
+      return res.status(422).json({
+        detail: 'Buyruqdan ma\'lumot ajratib bo\'lmadi. Pul summasi va operatsiya turini aniqroq ayting.',
+      });
     }
 
-    const parsed = JSON.parse(jsonMatch[0]);
     const sumAmount = parseFloat(parsed.sum_amount) || 0;
-
     if (sumAmount <= 0) {
-      return res.status(422).json({ detail: 'Pul miqdori topilmadi. Summani aniq yozing.' });
+      return res.status(422).json({ detail: 'Pul miqdori topilmadi. Masalan: "500 ming so\'m chiqim" deb yozing.' });
     }
 
     return res.status(200).json({
@@ -77,4 +84,27 @@ Foydalanuvchi buyrug'i: "${String(text).trim()}"`;
   } catch (err) {
     return res.status(500).json({ detail: err.message || 'Tahlilda xatolik yuz berdi' });
   }
+}
+
+// Markdown kod bloki, extra matn va boshqa shovqindan JSON ni ajratib olish
+function extractJson(raw) {
+  if (!raw) return null;
+
+  // 1. responseMimeType=application/json bo'lsa to'g'ridan-to'g'ri parse
+  try { return JSON.parse(raw); } catch {}
+
+  // 2. ```json ... ``` yoki ``` ... ``` bloki
+  const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fenced) {
+    try { return JSON.parse(fenced[1].trim()); } catch {}
+  }
+
+  // 3. Birinchi { dan oxirgi } gacha
+  const start = raw.indexOf('{');
+  const end   = raw.lastIndexOf('}');
+  if (start !== -1 && end > start) {
+    try { return JSON.parse(raw.slice(start, end + 1)); } catch {}
+  }
+
+  return null;
 }
