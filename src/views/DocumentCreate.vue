@@ -15,6 +15,46 @@
       <h1 class="page-title">{{ t('finance.newDocument') }}</h1>
     </div>
 
+    <!-- AI Panel -->
+    <div class="ai-panel">
+      <button
+        type="button"
+        class="ai-toggle-btn"
+        :class="{ active: showAiPanel }"
+        :disabled="isSubmitting"
+        @click="showAiPanel = !showAiPanel"
+      >
+        <span class="ai-icon">🤖</span>
+        <span>AI buyruq</span>
+        <span class="ai-chevron" :class="{ open: showAiPanel }">›</span>
+      </button>
+
+      <Transition name="ai-slide">
+        <div v-if="showAiPanel" class="ai-body">
+          <textarea
+            v-model="aiText"
+            class="ai-textarea"
+            rows="3"
+            placeholder="Masalan: 'Kommunal uchun 500 ming so'm chiqim qil' yoki 'Xaridordan 2 mln kirim olindi'"
+            :disabled="aiLoading || isSubmitting"
+          />
+          <div class="ai-actions">
+            <button
+              type="button"
+              class="ai-submit-btn"
+              :disabled="aiLoading || !aiText.trim() || isSubmitting"
+              @click="runAiAnalysis"
+            >
+              <span v-if="aiLoading" class="spinner" />
+              {{ aiLoading ? 'Tahlil qilmoqda...' : 'Tahlil qil' }}
+            </button>
+          </div>
+          <div v-if="aiError" class="ai-error">{{ aiError }}</div>
+          <div v-if="aiSuccess" class="ai-success">{{ aiSuccess }}</div>
+        </div>
+      </Transition>
+    </div>
+
     <div class="form-body">
       <!-- Document type cards -->
       <div class="field">
@@ -207,6 +247,58 @@ export default {
     const formattedSum     = ref('');
     const currencyType     = ref('UZS');
     const comment          = ref('');
+
+    // AI panel state
+    const showAiPanel = ref(false);
+    const aiText      = ref('');
+    const aiLoading   = ref(false);
+    const aiError     = ref('');
+    const aiSuccess   = ref('');
+
+    async function runAiAnalysis() {
+      aiError.value   = '';
+      aiSuccess.value = '';
+      aiLoading.value = true;
+      try {
+        const res = await axios.post(
+          '/api/agent/analyze',
+          { text: aiText.value.trim() },
+          { timeout: 30000 },
+        );
+        const d = res.data;
+
+        // Map AI result → form fields
+        selectType(d.document_type);
+        sum.value          = d.sum_amount;
+        formattedSum.value = String(Math.round(d.sum_amount)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+        comment.value      = d.comment || '';
+
+        if (d.document_type === 'Расход' && d.operation) {
+          operation.value = d.operation;
+          await onOperationChange();
+
+          // Try exact match first, then partial
+          const matched =
+            actionTypes.value.find(a => a === d.action_type) ||
+            actionTypes.value.find(a => a.toLowerCase().includes((d.action_type || '').toLowerCase()));
+          if (matched) {
+            actionType.value = matched;
+            await onActionTypeChange();
+          }
+        }
+
+        aiSuccess.value = `✅ Tahlil tayyor! Summа: ${Math.round(d.sum_amount).toLocaleString('uz-UZ')} so'm — tekshirib, tasdiqlang.`;
+        window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred?.('success');
+      } catch (err) {
+        aiError.value =
+          err?.response?.data?.detail ||
+          err?.message ||
+          'AI tahlilida xatolik yuz berdi.';
+        window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred?.('error');
+      } finally {
+        aiLoading.value = false;
+      }
+    }
 
     // submit state
     const isSubmitting = ref(false);
@@ -515,8 +607,9 @@ export default {
       toCashRegister, cashRegisters,
       formattedSum, currencyType, comment,
       isSubmitting, submitError, hasTgMainButton, toast,
+      showAiPanel, aiText, aiLoading, aiError, aiSuccess,
       selectType, setCurrency, onSumInput, onOperationChange, onActionTypeChange, onNestedActionTypeChange,
-      submitDocument, goBack, clearError,
+      submitDocument, goBack, clearError, runAiAnalysis,
     };
   },
 };
@@ -713,6 +806,125 @@ export default {
   animation: spin 0.8s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── AI Panel ── */
+.ai-panel {
+  margin: 12px 16px 0;
+  border-radius: 16px;
+  border: 1.5px solid var(--border-subtle);
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.ai-toggle-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 16px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 150ms;
+}
+.ai-toggle-btn:active:not(:disabled) { background: var(--surface-1); }
+.ai-toggle-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.ai-toggle-btn.active { color: #2563EB; }
+
+.ai-icon { font-size: 18px; }
+
+.ai-chevron {
+  margin-left: auto;
+  font-size: 20px;
+  color: var(--text-secondary);
+  display: inline-block;
+  transform: rotate(0deg);
+  transition: transform 220ms ease;
+  line-height: 1;
+}
+.ai-chevron.open { transform: rotate(90deg); }
+
+.ai-body {
+  padding: 0 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ai-textarea {
+  width: 100%;
+  min-height: 80px;
+  border-radius: 12px;
+  border: 1.5px solid transparent;
+  background: var(--surface-1);
+  color: var(--text-primary);
+  padding: 12px 14px;
+  font-size: 15px;
+  font-family: inherit;
+  resize: none;
+  outline: none;
+  line-height: 1.4;
+  box-sizing: border-box;
+  transition: border-color 150ms;
+}
+.ai-textarea:focus { border-color: #2563EB; }
+.ai-textarea:disabled { opacity: 0.5; }
+
+.ai-actions { display: flex; gap: 8px; }
+
+.ai-submit-btn {
+  flex: 1;
+  height: 46px;
+  border-radius: 12px;
+  border: none;
+  background: linear-gradient(135deg, #2563EB, #6B21A8);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: opacity 150ms, transform 150ms;
+  -webkit-tap-highlight-color: transparent;
+}
+.ai-submit-btn:active:not(:disabled) { transform: scale(0.97); }
+.ai-submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.ai-error {
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  background: #FEE2E2;
+  color: #B91C1C;
+}
+.ai-success {
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  background: #DCFCE7;
+  color: #15803D;
+}
+
+.ai-slide-enter-active,
+.ai-slide-leave-active {
+  transition: opacity 200ms ease, transform 200ms ease;
+}
+.ai-slide-enter-from,
+.ai-slide-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
 
 /* Toast */
 .toast {

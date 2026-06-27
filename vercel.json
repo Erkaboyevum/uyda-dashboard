@@ -3,6 +3,9 @@
     "api/flyer/generate.js": {
       "memory": 1024,
       "maxDuration": 60
+    },
+    "api/agent/analyze.js": {
+      "maxDuration": 30
     }
   },
   "rewrites": [
