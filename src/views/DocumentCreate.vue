@@ -31,24 +31,53 @@
 
       <Transition name="ai-slide">
         <div v-if="showAiPanel" class="ai-body">
+          <!-- Ovoz holat ko'rsatkichi -->
+          <div v-if="isRecording" class="ai-recording-bar">
+            <span class="rec-dot" />
+            <span>Yozilmoqda... (to'xtatish uchun yana bosing)</span>
+          </div>
+
           <textarea
             v-model="aiText"
             class="ai-textarea"
             rows="3"
-            placeholder="Masalan: 'Kommunal uchun 500 ming so'm chiqim qil' yoki 'Xaridordan 2 mln kirim olindi'"
-            :disabled="aiLoading || isSubmitting"
+            placeholder="Yozing yoki mikrofon orqali ayting..."
+            :disabled="aiLoading || isRecording || isSubmitting"
           />
+
           <div class="ai-actions">
+            <!-- Mikrofon tugmasi -->
+            <button
+              type="button"
+              class="ai-mic-btn"
+              :class="{ recording: isRecording }"
+              :disabled="aiLoading || isSubmitting"
+              :title="isRecording ? 'To\'xtatish' : 'Ovozli buyruq'"
+              @click="toggleRecording"
+            >
+              <svg v-if="!isRecording" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <rect x="9" y="2" width="6" height="12" rx="3"/>
+                <path d="M19 10a7 7 0 0 1-14 0"/>
+                <line x1="12" y1="19" x2="12" y2="22"/>
+                <line x1="9" y1="22" x2="15" y2="22"/>
+              </svg>
+              <svg v-else width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <rect x="6" y="6" width="12" height="12" rx="2"/>
+              </svg>
+            </button>
+
+            <!-- Tahlil qil tugmasi -->
             <button
               type="button"
               class="ai-submit-btn"
-              :disabled="aiLoading || !aiText.trim() || isSubmitting"
+              :disabled="aiLoading || isRecording || !aiText.trim() || isSubmitting"
               @click="runAiAnalysis"
             >
               <span v-if="aiLoading" class="spinner" />
-              {{ aiLoading ? 'Tahlil qilmoqda...' : 'Tahlil qil' }}
+              {{ aiLoading ? aiLoadingMsg : 'Tahlil qil' }}
             </button>
           </div>
+
           <div v-if="aiError" class="ai-error">{{ aiError }}</div>
           <div v-if="aiSuccess" class="ai-success">{{ aiSuccess }}</div>
         </div>
@@ -249,16 +278,99 @@ export default {
     const comment          = ref('');
 
     // AI panel state
-    const showAiPanel = ref(false);
-    const aiText      = ref('');
-    const aiLoading   = ref(false);
-    const aiError     = ref('');
-    const aiSuccess   = ref('');
+    const showAiPanel  = ref(false);
+    const aiText       = ref('');
+    const aiLoading    = ref(false);
+    const aiLoadingMsg = ref('Tahlil qilmoqda...');
+    const aiError      = ref('');
+    const aiSuccess    = ref('');
+    const isRecording  = ref(false);
 
-    async function runAiAnalysis() {
+    let mediaRecorder = null;
+    let audioChunks   = [];
+    let audioStream   = null;
+
+    function blobToBase64(blob) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result.split(',')[1]);
+        reader.onerror   = reject;
+        reader.readAsDataURL(blob);
+      });
+    }
+
+    async function toggleRecording() {
+      if (isRecording.value) {
+        mediaRecorder?.stop();
+        return;
+      }
+
       aiError.value   = '';
       aiSuccess.value = '';
-      aiLoading.value = true;
+
+      try {
+        audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch {
+        aiError.value = 'Mikrofonga ruxsat berilmadi. Brauzer sozlamalarini tekshiring.';
+        return;
+      }
+
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : MediaRecorder.isTypeSupported('audio/webm')
+          ? 'audio/webm'
+          : 'audio/ogg';
+
+      audioChunks  = [];
+      mediaRecorder = new MediaRecorder(audioStream, { mimeType });
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunks.push(e.data);
+      };
+
+      mediaRecorder.onstop = async () => {
+        audioStream?.getTracks().forEach(t => t.stop());
+        isRecording.value = false;
+        window.Telegram?.WebApp?.HapticFeedback?.impactOccurred?.('light');
+
+        aiLoading.value   = true;
+        aiLoadingMsg.value = 'Ovoz eshitilmoqda...';
+        try {
+          const blob   = new Blob(audioChunks, { type: mimeType });
+          const base64 = await blobToBase64(blob);
+
+          const res = await axios.post(
+            '/api/agent/transcribe',
+            { audio_base64: base64, mime_type: mimeType.split(';')[0] },
+            { timeout: 30000 },
+          );
+          aiText.value = res.data.text || '';
+
+          if (aiText.value.trim()) {
+            await runAiAnalysis();
+          } else {
+            aiError.value = 'Ovozdan matn ajratib bo\'lmadi. Qayta urinib ko\'ring.';
+          }
+        } catch (err) {
+          aiError.value =
+            err?.response?.data?.detail ||
+            err?.message ||
+            'Ovoz tahlilida xatolik yuz berdi.';
+        } finally {
+          aiLoading.value = false;
+        }
+      };
+
+      mediaRecorder.start();
+      isRecording.value = true;
+      window.Telegram?.WebApp?.HapticFeedback?.impactOccurred?.('medium');
+    }
+
+    async function runAiAnalysis() {
+      aiError.value    = '';
+      aiSuccess.value  = '';
+      aiLoading.value  = true;
+      aiLoadingMsg.value = 'Tahlil qilmoqda...';
       try {
         const res = await axios.post(
           '/api/agent/analyze',
@@ -576,6 +688,12 @@ export default {
     });
 
     onUnmounted(() => {
+      // Stop any active microphone stream
+      if (mediaRecorder && isRecording.value) {
+        mediaRecorder.stop();
+      }
+      audioStream?.getTracks().forEach(t => t.stop());
+
       // Kill any in-flight request and pending navigation so the next mount is clean
       if (abortController) {
         abortController.abort();
@@ -607,7 +725,8 @@ export default {
       toCashRegister, cashRegisters,
       formattedSum, currencyType, comment,
       isSubmitting, submitError, hasTgMainButton, toast,
-      showAiPanel, aiText, aiLoading, aiError, aiSuccess,
+      showAiPanel, aiText, aiLoading, aiLoadingMsg, aiError, aiSuccess,
+      isRecording, toggleRecording,
       selectType, setCurrency, onSumInput, onOperationChange, onActionTypeChange, onNestedActionTypeChange,
       submitDocument, goBack, clearError, runAiAnalysis,
     };
@@ -876,7 +995,51 @@ export default {
 .ai-textarea:focus { border-color: #2563EB; }
 .ai-textarea:disabled { opacity: 0.5; }
 
+.ai-recording-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: #FEE2E2;
+  color: #B91C1C;
+  font-size: 13px;
+  font-weight: 600;
+}
+.rec-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: #EF4444;
+  animation: pulse-rec 1s ease-in-out infinite;
+  flex-shrink: 0;
+}
+@keyframes pulse-rec {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(0.8); }
+}
+
 .ai-actions { display: flex; gap: 8px; }
+
+.ai-mic-btn {
+  width: 46px; height: 46px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  border: 1.5px solid var(--border-subtle);
+  background: var(--surface-1);
+  color: var(--text-primary);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: all 150ms;
+  -webkit-tap-highlight-color: transparent;
+}
+.ai-mic-btn:active:not(:disabled) { transform: scale(0.93); }
+.ai-mic-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.ai-mic-btn.recording {
+  background: #EF4444;
+  border-color: #EF4444;
+  color: #fff;
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.2);
+}
 
 .ai-submit-btn {
   flex: 1;

@@ -6,6 +6,9 @@
     },
     "api/agent/analyze.js": {
       "maxDuration": 30
+    },
+    "api/agent/transcribe.js": {
+      "maxDuration": 30
     }
   },
   "rewrites": [
