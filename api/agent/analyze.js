@@ -13,68 +13,26 @@ export default async function handler(req, res) {
     return res.status(500).json({ detail: 'GEMINI_API_KEY serverda sozlanmagan' });
   }
 
-  const cleanText = String(text).trim();
+  const userInput = String(text).trim();
 
-  const systemInstruction = `Sen moliyaviy buyruqlarni tahlil qiladigan JSON generatorsan.
-QOIDA: Har doim FAQAT sof JSON obyekti qaytar. Hech qanday markdown, kod bloki, izoh, tushuntirish YOZMA.
-Javob to'g'ridan-to'g'ri { bilan boshlanishi va } bilan tugashi SHART.`;
-
-  const userPrompt = `Quyidagi o'zbekcha (ko'cha tili, ruscha-o'zbekcha aralash) moliyaviy buyruqni tahlil qil:
-"${cleanText}"
-
-FAQAT quyidagi JSON formatda qaytar:
-{"document_type":"...","sum_amount":0,"currency":"UZS","operation":"...","action_type":"...","comment":"..."}
-
-QOIDALAR:
-
-document_type:
-- "Приход" → kirim, tushum, kassa oldi, savdo, keldi, tushdi
-- "Расход" → chiqim, rasxod, to'landi, sarflandi, berdi, chiqdi, to'la, ber
-
-sum_amount: faqat son. "ming"=×1000, "million"/"mln"=×1000000. "ikki yuz ming"=200000.
-
-currency:
-- "USD" → $, dollar, usd, baku, baksu, ko'ki, yashil, dolir, dollor
-- "UZS" → barcha boshqa holat
-
-operation (faqat Расход uchun):
-- "Поставщику" → tovar, mahsulot, postavshik, optom, sklad, firma, diller, diler
-- "На расходы" → barcha boshqa Расход
-
-action_type (faqat Расход uchun — quyidagi ro'yxatdan mos birini tanlа, topa olmasa null qaytar):
-- "Коммунальные платежи" → svet, gaz, tok, suv, elektr, energiya, kommunal, chiroq, musor, issiqlik, kanalizatsiya, res
-- "Оплата поставщикам" → tovar, mahsulot, postavshik, mebel, remont, qurilish, optom, firma, dostavka, sklad, yuk, diller, chinni, tekstil, podguznik, sayding, furshet, abduvali, elcicek, herevin
-- "Заработная плата" → oylik, avans, zarp, maosh, ish haqi, zarplata, xodim, kpi, mib, bollarga
-- "Бонус" → bonus, premiya, rag'bat, mukofot, suyunchi, taqdirlash, markirovka, shtrix
-- "Налоги" → nalog, soliq, yer, mulk, gni, tamojnya, bojxona, qqs, nds, inspektor
-- "Командировки" → bilet, komandirovka, safar, taksi, yo'l, mehmonxona, avia, poezd, xitoy, rossiya, vystavka, gastinitsa
-- "Расходы маркетплейса" → uzum, wildberries, ozon, marketpleys, zoodmall, market
-- "SMM таргет видео" → reklama, smm, target, instagram, telegram, tiktok, facebook, video, rolik, pr
-- "Благотворительность" → ehson, sadaqa, masjid, yordam, yetim, beva, kasal, jamiyat, daraxt
-- "Сертификация" → sertifikat, litsenziya, ruxsatnoma, standart, sst
-- "Техническое обслуживание" → usta, tuzatish, zapchast, benzin, moy, zapravka, kabel, lampa, rozetka, avtomat, texnik, obslujivaniye
-- "Мероприятие и представительский расходи" → restoran, choyxona, osh, bayram, futbol, tadbirlar, korporativ, sovg, gul, kubok, 8mart
-- "Блоггер" → bloger, blogger, inflyuenser, vayn
-- "Канцелярские расходы" → qog'oz, ruchka, printer, kseroks, kantselyariya, qalam, daftar, pechat, kraska, skotch
-- "Банковское обслуживание" → bank, komissiya, inkassatsiya, obmen, foiz, xizmat haqi
-- "Прочие операционные расходы" → boshqa aniq aniqlangan xarajatlar
-
-comment: original buyruqdan qisqa 3-5 so'zlik izoh`;
+  // Step 1: Gemini orqali faqat raw_sum va keywords ajratish (Python Ollama qadami analog)
+  let extractedSum = 0;
+  let keywordsStr  = '';
 
   try {
+    const extractPrompt = `Foydalanuvchi matnidan pul summasini va asosiy kalit so'zlarni ajratib toza JSON formatida ber.
+'ming' 3ta nol, 'million' 6ta nol ekanini hisobla. Gap qo'shma. Agar valyuta belgisi bo'lsa uni olib tashlab faqat sonni o'zini ber.
+{"raw_sum": 200000, "keywords": ["kalit", "sozlar"]}
+Matn: "${userInput}"`;
+
     const geminiRes = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          system_instruction: { parts: [{ text: systemInstruction }] },
-          contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
-          generationConfig: {
-            temperature: 0,
-            maxOutputTokens: 256,
-            responseMimeType: 'application/json',
-          },
+          contents: [{ role: 'user', parts: [{ text: extractPrompt }] }],
+          generationConfig: { temperature: 0, maxOutputTokens: 128, responseMimeType: 'application/json' },
         }),
       }
     );
@@ -85,46 +43,114 @@ comment: original buyruqdan qisqa 3-5 so'zlik izoh`;
     }
 
     const geminiData = await geminiRes.json();
-    const parts = geminiData?.candidates?.[0]?.content?.parts || [];
-    const rawText = parts.map(p => p.text || '').join('').trim();
+    const parts  = geminiData?.candidates?.[0]?.content?.parts || [];
+    const rawTxt = parts.map(p => p.text || '').join('').trim();
+    const parsed = extractJson(rawTxt);
 
-    const parsed = extractJson(rawText);
     if (!parsed) {
-      console.error('[analyze] JSON topilmadi. Raw:', rawText.slice(0, 500));
-      return res.status(422).json({
-        detail: "Buyruqdan ma'lumot ajratib bo'lmadi. Pul summasi va operatsiya turini aniqroq ayting.",
-      });
+      return res.status(422).json({ detail: "Buyruqdan ma'lumot ajratib bo'lmadi. Pul summasi va operatsiya turini aniqroq ayting." });
     }
 
-    const sumAmount = parseFloat(parsed.sum_amount) || 0;
-    if (sumAmount <= 0) {
-      return res.status(422).json({ detail: "Pul miqdori topilmadi. Masalan: '500 ming so'm chiqim' deb yozing." });
-    }
-
-    const currency = parsed.currency === 'USD' ? 'USD' : 'UZS';
-    const docType  = parsed.document_type || 'Расход';
-
-    // Slot filling: Расход lekin category aniqlanmagan
-    if (docType === 'Расход' && !parsed.action_type) {
-      const currLabel = currency === 'USD'
-        ? `$${sumAmount.toLocaleString()}`
-        : `${sumAmount.toLocaleString()} so'm`;
-      return res.status(422).json({
-        detail: `📝 Siz ${currLabel} dedingiz, lekin nima uchun ekanini aytmadingiz. Iltimos, xarajat maqsadini bildiring (masalan: obedga, arendaga, svetga).`,
-      });
-    }
-
-    return res.status(200).json({
-      document_type: docType,
-      sum_amount:    sumAmount,
-      currency,
-      operation:     parsed.operation   || (docType === 'Расход' ? 'На расходы' : ''),
-      action_type:   parsed.action_type || '',
-      comment:       parsed.comment     || '',
-    });
+    extractedSum = parseFloat(parsed.raw_sum) || 0;
+    const kwList = Array.isArray(parsed.keywords) ? parsed.keywords.map(k => String(k).toLowerCase()) : [];
+    keywordsStr  = kwList.join(' ') + ' ' + userInput.toLowerCase();
   } catch (err) {
     return res.status(500).json({ detail: err.message || 'Tahlilda xatolik yuz berdi' });
   }
+
+  if (extractedSum <= 0) {
+    return res.status(422).json({ detail: "💰 Summani aniqlay olmadim! Iltimos, qancha pul ekanligini (masalan: '200 ming') aniq ayting." });
+  }
+
+  // Step 2: Python orchestrator kalit so'z matching (to'liq port)
+  const has = (words) => words.some(w => keywordsStr.includes(w));
+
+  // Valyuta aniqlash
+  const currency = has(['$', 'dollar', 'usd', 'baku', 'baksu', "ko'ki", 'yashil', 'dolir', 'dollor'])
+    ? 'USD'
+    : 'UZS';
+
+  // Hujjat turi
+  let docType, operation, actionType;
+
+  if (has(['kirim', 'tushum', 'kassa oldi', 'savdo'])) {
+    docType    = 'Приход';
+    operation  = '';
+    actionType = '';
+  } else {
+    docType = 'Расход';
+
+    if (has(['svet', 'gaz', 'kommunal', 'tok', 'musor', 'suv', 'elektr', 'energiya', 'chiroq', 'res', 'kanalizatsiya', 'issiqlik'])) {
+      actionType = 'Коммунальные платежи';
+      operation  = 'На расходы';
+    } else if (has(['abu saxiy', 'qurilish', 'remont', 'mebel', 'tovar', 'postavshik', 'furshet', 'podguznik', 'sayding', 'abduvali', 'chinni', 'korkamaz', 'tekstil', 'elcicek', 'herevin', 'optom', 'dostavka', 'firma', 'sklad', 'yuk', 'diller', 'diler', 'mahsulot'])) {
+      actionType = 'Оплата поставщикам';
+      operation  = 'Поставщику';
+    } else if (has(['oylik', 'avans', 'zarp', 'mib', 'ish haqi', 'zarplata', 'bollarga', 'xodim', 'maosh', 'kpi'])) {
+      actionType = 'Заработная плата';
+      operation  = 'На расходы';
+    } else if (has(['bonus', 'premiya', 'taqdirlash', 'markirovka', 'shtrix', 'suyunchi', "rag'bat", 'mukofot'])) {
+      actionType = 'Бонус';
+      operation  = 'На расходы';
+    } else if (has(['nalog', 'soliq', 'yer', 'mulk', 'inspektor', 'gni', 'tamojnya', 'bojxona', 'qqs', 'nds'])) {
+      actionType = 'Налоги';
+      operation  = 'На расходы';
+    } else if (has(['bilet', 'komandirovka', 'vystavka', 'xitoy', 'rossiya', 'safar', 'taksi', 'yol kira', "yo'l", 'mehmonxona', 'avia', 'poezd', 'gastinitsa'])) {
+      actionType = 'Командировки';
+      operation  = 'На расходы';
+    } else if (has(['uzum', 'marketpleys', 'market', 'wildberries', 'ozon', 'zoodmall'])) {
+      actionType = 'Расходы маркетплейса';
+      operation  = 'На расходы';
+    } else if (has(['reklama', 'smm', 'target', 'pr', 'video', 'rolik', 'instagram', 'facebook', 'telegram', 'tiktok'])) {
+      actionType = 'SMM таргет видео';
+      operation  = 'На расходы';
+    } else if (has(['ehson', 'yordam', 'operatsiya', 'kasal', 'kontrakt', 'kur', 'jamiyat', 'daraxt', 'sadaqa', 'masjid', 'beva', 'yetim'])) {
+      actionType = 'Благотворительность';
+      operation  = 'На расходы';
+    } else if (has(['sst', 'sertifikat', 'standart', 'ruxsatnoma', 'litsenziya'])) {
+      actionType = 'Сертификация';
+      operation  = 'На расходы';
+    } else if (has(['kabel', 'lampa', 'rozetka', 'texnik', 'avtomat', 'zapchast', 'usta', 'tuzatish', 'obslujivaniye', 'zapravka', 'moy', 'benzin'])) {
+      actionType = 'Техническое обслуживание';
+      operation  = 'На расходы';
+    } else if (has(['bayram', '8 mart', 'gul', 'futbol', 'kubok', 'tadbirlar', 'choyxona', 'restoran', 'osh', 'korporativ', 'sovg'])) {
+      actionType = 'Мероприятие и представительский расходи';
+      operation  = 'На расходы';
+    } else if (has(['bloger', 'blogger', 'vayn', 'inflyuenser'])) {
+      actionType = 'Блоггер';
+      operation  = 'На расходы';
+    } else if (has(["kantselyariya", "qog'oz", 'ruchka', 'qalam', 'daftar', 'pechat', 'kseroks', 'printer', 'kraska', 'skotch'])) {
+      actionType = 'Канцелярские расходы';
+      operation  = 'На расходы';
+    } else if (has(['bank', 'obmen', 'komissiya', 'foiz', 'xizmat haqi', 'inkassatsiya'])) {
+      actionType = 'Банковское обслуживание';
+      operation  = 'На расходы';
+    } else {
+      // Slot filling — maqsad aniqlanmadi
+      const ignoreWords = ['chiqim', 'rasxod', 'qil', 'qiling', 'ber', 'berdi', 'tushdi', 'uchun', "so'm", 'ming', 'million', 'pul', 'dan', 'ga', 'dollar', 'usd', 'baku', '$'];
+      const meaningfulWords = userInput.toLowerCase().split(/\s+/)
+        .filter(w => !/\d/.test(w) && !ignoreWords.includes(w));
+
+      if (meaningfulWords.length === 0) {
+        const currLabel = currency === 'USD' ? `$${extractedSum.toLocaleString()}` : `${extractedSum.toLocaleString()} so'm`;
+        return res.status(422).json({
+          detail: `📝 Siz ${currLabel} dedingiz, lekin u NIMA UCHUN sarflanganini aytmadingiz! Iltimos, xarajat maqsadini bildiring (masalan: obedga, arendaga).`,
+        });
+      }
+
+      actionType = 'Прочие операционные расходы';
+      operation  = 'На расходы';
+    }
+  }
+
+  return res.status(200).json({
+    document_type: docType,
+    sum_amount:    extractedSum,
+    currency,
+    operation,
+    action_type:   actionType,
+    comment:       userInput,
+  });
 }
 
 function extractJson(raw) {
