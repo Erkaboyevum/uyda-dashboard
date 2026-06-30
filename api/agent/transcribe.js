@@ -14,10 +14,12 @@ export default async function handler(req, res) {
   }
 
   const sttPrompt =
-    "Ushbu audio fayldagi o'zbekcha nutqni aniq matnga o'girib ber. " +
-    "Pul va sonlarni raqamda yoz (masalan: '200 ming' emas, '200000' deb yozmay, " +
-    "'200 ming' deb yoz — tahlilchi o'zi aylantiradi). Faqat matnni o'zini qaytar, " +
-    "hech qanday izoh qo'shma.";
+    "Ushbu audio fayldagi o'zbekcha nutqni o'ta aniq matnga o'gir. " +
+    "Nutq ko'cha tilida, jargon yoki ruscha-o'zbekcha aralashgan bo'lishi mumkin " +
+    "(masalan: 'svetga', 'zarpga bervor', 'obet', 'arendaga', 'kirdi', 'tushdi'). " +
+    "Qanday eshitilsa, mazmunni yo'qotmay shunday yoz. " +
+    "DIQQAT: Barcha sonlar va pul miqdorlarini faqat raqamda yoz " +
+    "(masalan, 'ikki yuz ming' desa 200000 deb). Ortiqcha izohsiz faqat matnni o'zini qaytar.";
 
   try {
     const geminiRes = await fetch(

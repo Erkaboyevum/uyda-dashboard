@@ -385,6 +385,8 @@ export default {
         formattedSum.value = String(Math.round(d.sum_amount)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
         comment.value      = d.comment || '';
 
+        if (d.currency) setCurrency(d.currency);
+
         if (d.document_type === 'Расход' && d.operation) {
           operation.value = d.operation;
           await onOperationChange();
@@ -399,7 +401,8 @@ export default {
           }
         }
 
-        aiSuccess.value = `✅ Tahlil tayyor! Summа: ${Math.round(d.sum_amount).toLocaleString('uz-UZ')} so'm — tekshirib, tasdiqlang.`;
+        const currLabel = currencyType.value === 'USD' ? '$' : 'so\'m';
+        aiSuccess.value = `✅ Tahlil tayyor! Summа: ${Math.round(d.sum_amount).toLocaleString('uz-UZ')} ${currLabel} — tekshirib, tasdiqlang.`;
         window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred?.('success');
       } catch (err) {
         aiError.value =
