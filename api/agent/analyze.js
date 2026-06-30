@@ -32,7 +32,12 @@ Matn: "${userInput}"`;
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ role: 'user', parts: [{ text: extractPrompt }] }],
-          generationConfig: { temperature: 0, maxOutputTokens: 128, responseMimeType: 'application/json' },
+          generationConfig: {
+            temperature: 0,
+            maxOutputTokens: 512,
+            responseMimeType: 'application/json',
+            thinkingConfig: { thinkingBudget: 0 },
+          },
         }),
       }
     );
@@ -44,7 +49,7 @@ Matn: "${userInput}"`;
 
     const geminiData = await geminiRes.json();
     const parts  = geminiData?.candidates?.[0]?.content?.parts || [];
-    const rawTxt = parts.map(p => p.text || '').join('').trim();
+    const rawTxt = parts.filter(p => !p.thought).map(p => p.text || '').join('').trim();
     const parsed = extractJson(rawTxt);
 
     if (!parsed) {
