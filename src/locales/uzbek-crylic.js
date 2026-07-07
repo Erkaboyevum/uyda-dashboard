@@ -102,6 +102,8 @@ export default {
     templateLabel:            "Андоза",
     templatesEmpty:           "Андозалар топилмади",
     templatesEmptyHint:       "Қўлда киритишдан фойдаланинг",
+    discount:                 "Чегирма",
+    thresholdUpTo:            "{amount} гача",
   },
   errors: {
     requiredField: "Илтимос, барча мажбурий майдонларни тўлдиринг.",

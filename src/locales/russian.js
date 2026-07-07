@@ -102,6 +102,8 @@ export default {
     templateLabel:            "Шаблон",
     templatesEmpty:           "Шаблоны не найдены",
     templatesEmptyHint:       "Используйте ручной ввод",
+    discount:                 "Скидка",
+    thresholdUpTo:            "До {amount}",
   },
   errors: {
     requiredField: "Пожалуйста, заполните все обязательные поля.",

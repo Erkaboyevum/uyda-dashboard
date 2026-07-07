@@ -50,13 +50,31 @@
               v-for="tpl in templates"
               :key="tpl.id"
               :value="tpl.id"
-            >{{ tpl.name }} — {{ templateSummary(tpl) }}</option>
+            >{{ tpl.name }}</option>
           </select>
           <span v-if="!templatesLoading" class="select-arrow">▾</span>
           <span v-else class="select-spinner" />
         </div>
         <div v-if="!templatesLoading && !templatesError && templates.length === 0" class="empty-hint">
           {{ t('flyer.templatesEmpty') }} — {{ t('flyer.templatesEmptyHint') }}
+        </div>
+
+        <!-- Discount preview -->
+        <div v-if="selectedTemplate" class="discount-preview">
+          <template v-if="selectedTemplate.flyerType === 'tiered'">
+            <div
+              v-for="(th, idx) in selectedTemplate.thresholds"
+              :key="idx"
+              class="discount-row"
+            >
+              <span class="discount-amount">{{ t('flyer.thresholdUpTo', { amount: formatAmount(th.maxAmount) }) }}</span>
+              <span class="discount-percent">{{ th.discountPercent }}%</span>
+            </div>
+          </template>
+          <div v-else class="discount-row">
+            <span class="discount-amount">{{ t('flyer.discount') }}</span>
+            <span class="discount-percent">{{ selectedTemplate.discountPercent }}%</span>
+          </div>
         </div>
       </div>
 
@@ -193,19 +211,12 @@ function setMode(next) {
   clearError();
 }
 
-function templateSummary(tpl) {
-  if (tpl.flyerType === 'tiered' && Array.isArray(tpl.thresholds)) {
-    return tpl.thresholds
-      .map(th => `${formatThousands(th.maxAmount)}→${th.discountPercent}%`)
-      .join(', ');
-  }
-  return `${tpl.discountPercent}%`;
-}
+const selectedTemplate = computed(() =>
+  templates.value.find(tpl => tpl.id === selectedTemplateId.value) || null
+);
 
-function formatThousands(amount) {
-  return Number(amount) % 1000 === 0
-    ? `${Number(amount) / 1000}k`
-    : Number(amount).toLocaleString();
+function formatAmount(amount) {
+  return String(Number(amount)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 }
 
 const isFormValid = computed(() => {
@@ -418,6 +429,33 @@ onUnmounted(() => {
   font-size: 12px;
   color: var(--text-secondary);
   padding: 4px 2px 0;
+}
+
+.discount-preview {
+  margin-top: 10px;
+  background: var(--surface-2);
+  border-radius: 12px;
+  padding: 4px 14px;
+}
+.discount-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.discount-row:last-child { border-bottom: none; }
+.discount-amount {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.discount-percent {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--brand-500);
+  flex-shrink: 0;
 }
 
 .select-wrap { position: relative; }

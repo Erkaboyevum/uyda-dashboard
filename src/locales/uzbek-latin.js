@@ -102,6 +102,8 @@ export default {
     templateLabel:            "Andoza",
     templatesEmpty:           "Andozalar topilmadi",
     templatesEmptyHint:       "Qo'lda kiritishdan foydalaning",
+    discount:                 "Chegirma",
+    thresholdUpTo:            "{amount} gacha",
   },
   errors: {
     requiredField: "Iltimos, barcha majburiy maydonlarni to'ldiring.",
