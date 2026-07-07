@@ -153,7 +153,7 @@ const { t } = useI18n();
 const router = useRouter();
 
 const FLYER_BASE     = 'https://api.erkaboyev.uz/Golddishes/hs/flyers';
-const TEMPLATES_BASE = 'https://api.erkaboyev.uz/Golddishes/hs/templates';
+const TEMPLATES_BASE = `${FLYER_BASE}/templates`;
 const FALLBACK_CHAT_ID = '1319223069';
 
 const chatId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id
