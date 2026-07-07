@@ -16,6 +16,50 @@
     </div>
 
     <div class="form-body">
+      <!-- Mode toggle -->
+      <div class="field">
+        <div class="mode-seg">
+          <button
+            class="mode-btn"
+            :class="{ active: mode === 'template' }"
+            :disabled="isSubmitting"
+            @click="setMode('template')"
+          >{{ t('flyer.modeTemplate') }}</button>
+          <button
+            class="mode-btn"
+            :class="{ active: mode === 'manual' }"
+            :disabled="isSubmitting"
+            @click="setMode('manual')"
+          >{{ t('flyer.modeManual') }}</button>
+        </div>
+      </div>
+
+      <!-- Template -->
+      <div v-if="mode === 'template'" class="field">
+        <label class="field-label">{{ t('flyer.templateLabel') }}</label>
+        <div class="select-wrap" :class="{ 'is-loading': templatesLoading }">
+          <select
+            v-model="selectedTemplateId"
+            class="field-input"
+            :disabled="isSubmitting || templatesLoading || !templates.length"
+          >
+            <option value="" disabled>
+              {{ templatesLoading ? t('submitting') : t('selectOne') }}
+            </option>
+            <option
+              v-for="tpl in templates"
+              :key="tpl.id"
+              :value="tpl.id"
+            >{{ tpl.name }} — {{ templateSummary(tpl) }}</option>
+          </select>
+          <span v-if="!templatesLoading" class="select-arrow">▾</span>
+          <span v-else class="select-spinner" />
+        </div>
+        <div v-if="!templatesLoading && !templatesError && templates.length === 0" class="empty-hint">
+          {{ t('flyer.templatesEmpty') }} — {{ t('flyer.templatesEmptyHint') }}
+        </div>
+      </div>
+
       <!-- Counterparty -->
       <div class="field">
         <label class="field-label">{{ t('flyer.counterparty') }}</label>
@@ -39,8 +83,8 @@
         </div>
       </div>
 
-      <!-- Discount Percent -->
-      <div class="field">
+      <!-- Discount Percent (manual mode only) -->
+      <div v-if="mode === 'manual'" class="field">
         <label class="field-label">{{ t('flyer.discountPercent') }}</label>
         <input
           v-model.number="discountPercent"
@@ -69,6 +113,9 @@
           @input="clearError"
         />
       </div>
+
+      <!-- Templates fetch error -->
+      <div v-if="mode === 'template' && templatesError" class="fetch-error">{{ templatesError }}</div>
 
       <!-- Counterparties fetch error -->
       <div v-if="fetchError" class="fetch-error">{{ fetchError }}</div>
@@ -105,7 +152,8 @@ import axios from 'axios';
 const { t } = useI18n();
 const router = useRouter();
 
-const FLYER_BASE    = 'https://api.erkaboyev.uz/Golddishes/hs/flyers';
+const FLYER_BASE     = 'https://api.erkaboyev.uz/Golddishes/hs/flyers';
+const TEMPLATES_BASE = 'https://api.erkaboyev.uz/Golddishes/hs/templates';
 const FALLBACK_CHAT_ID = '1319223069';
 
 const chatId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id
@@ -122,6 +170,12 @@ const counterparties = ref([]);
 const counterpartiesLoading = ref(false);
 const fetchError = ref('');
 
+const mode = ref('template'); // 'template' | 'manual'
+const templates = ref([]);
+const templatesLoading = ref(false);
+const templatesError = ref('');
+const selectedTemplateId = ref('');
+
 const promoterId = ref('');
 const discountPercent = ref('');
 const flyerQuantity = ref('');
@@ -132,11 +186,34 @@ const toast = ref({ show: false, message: '', type: 'success' });
 
 let navTimer = null;
 
-const isFormValid = computed(() =>
-  promoterId.value !== '' &&
-  Number(discountPercent.value) > 0 &&
-  Number(flyerQuantity.value) > 0
-);
+function setMode(next) {
+  if (isSubmitting.value || mode.value === next) return;
+  window.Telegram?.WebApp?.HapticFeedback?.selectionChanged?.();
+  mode.value = next;
+  clearError();
+}
+
+function templateSummary(tpl) {
+  if (tpl.flyerType === 'tiered' && Array.isArray(tpl.thresholds)) {
+    return tpl.thresholds
+      .map(th => `${formatThousands(th.maxAmount)}→${th.discountPercent}%`)
+      .join(', ');
+  }
+  return `${tpl.discountPercent}%`;
+}
+
+function formatThousands(amount) {
+  return Number(amount) % 1000 === 0
+    ? `${Number(amount) / 1000}k`
+    : Number(amount).toLocaleString();
+}
+
+const isFormValid = computed(() => {
+  if (promoterId.value === '' || Number(flyerQuantity.value) <= 0) return false;
+  return mode.value === 'template'
+    ? selectedTemplateId.value !== ''
+    : Number(discountPercent.value) > 0;
+});
 
 function showToast(message, type = 'success') {
   toast.value = { show: true, message, type };
@@ -164,6 +241,23 @@ async function fetchCounterparties() {
   }
 }
 
+async function fetchTemplates() {
+  templatesLoading.value = true;
+  templatesError.value = '';
+  try {
+    const res = await axios.get(TEMPLATES_BASE, {
+      params: { chatID: chatId },
+      headers: getFlyerHeaders(),
+    });
+    templates.value = res.data?.data || [];
+  } catch (err) {
+    templatesError.value = err?.response?.data?.errorMessage || t('errors.networkError');
+    templates.value = [];
+  } finally {
+    templatesLoading.value = false;
+  }
+}
+
 async function submitFlyer() {
   if (isSubmitting.value || !isFormValid.value) return;
 
@@ -171,14 +265,21 @@ async function submitFlyer() {
   submitError.value = '';
 
   try {
-    const payload = {
-      chatID: chatId,
-      discountPercent: Number(discountPercent.value),
-      flyer_quantity: Number(flyerQuantity.value),
-      promoter_id: String(promoterId.value),
-    };
+    const payload = mode.value === 'template'
+      ? {
+          chatID: chatId,
+          promoter_id: String(promoterId.value),
+          flyer_quantity: Number(flyerQuantity.value),
+          template_id: selectedTemplateId.value,
+        }
+      : {
+          chatID: chatId,
+          discountPercent: Number(discountPercent.value),
+          flyer_quantity: Number(flyerQuantity.value),
+          promoter_id: String(promoterId.value),
+        };
 
-    const res = await axios.post(`${FLYER_BASE}/object`, payload, {
+    const res = await axios.post(FLYER_BASE, payload, {
       headers: getFlyerHeaders(),
       timeout: 15000,
       validateStatus: (s) => s >= 200 && s < 500,
@@ -204,6 +305,7 @@ async function submitFlyer() {
     promoterId.value = '';
     discountPercent.value = '';
     flyerQuantity.value = '';
+    selectedTemplateId.value = '';
 
     navTimer = setTimeout(() => {
       navTimer = null;
@@ -228,6 +330,7 @@ function goBack() {
 
 onMounted(() => {
   fetchCounterparties();
+  fetchTemplates();
 
   const tg = window.Telegram?.WebApp;
   if (tg?.BackButton) {
@@ -295,6 +398,26 @@ onUnmounted(() => {
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+}
+
+.mode-seg { display: flex; background: var(--surface-2); border-radius: 12px; padding: 4px; gap: 3px; }
+.mode-btn {
+  flex: 1; height: 44px; border: none; border-radius: 8px;
+  background: transparent; color: var(--text-secondary);
+  font-size: 14px; font-weight: 500; cursor: pointer;
+  font-family: inherit;
+  transition: all 180ms ease;
+}
+.mode-btn.active {
+  background: var(--surface-1); color: var(--text-primary);
+  font-weight: 700; box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+.mode-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.empty-hint {
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding: 4px 2px 0;
 }
 
 .select-wrap { position: relative; }

@@ -22,6 +22,11 @@
           >{{ t('languageUz') }}</button>
           <button
             class="lang-btn"
+            :class="{ active: language === 'uzbek-latin' }"
+            @click="setLang('uzbek-latin')"
+          >{{ t('languageUzLatin') }}</button>
+          <button
+            class="lang-btn"
             :class="{ active: language === 'russian' }"
             @click="setLang('russian')"
           >{{ t('languageRu') }}</button>

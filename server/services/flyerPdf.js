@@ -149,6 +149,18 @@ function cellCoords(col, row) {
   return { x, bottomY, topY };
 }
 
+// Simple flyers carry a flat discountPercent; tiered (template) flyers carry
+// a thresholds array instead — show a min-max range in that case.
+function getPercentDisplay(flyer) {
+  if (Array.isArray(flyer.thresholds) && flyer.thresholds.length > 0) {
+    const percents = flyer.thresholds.map(th => th.discountPercent);
+    const min = Math.min(...percents);
+    const max = Math.max(...percents);
+    return min === max ? String(max) : `${min}-${max}`;
+  }
+  return String(flyer.discountPercent);
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // PDF GENERATORS
 // Both accept a pre-fetched bgBytes buffer (may be null → gray placeholder).
@@ -187,17 +199,20 @@ async function generateFrontPdf(flyers, bgBytes, fredokaBytes, montserratBytes) 
         });
       }
 
+      const percentText = getPercentDisplay(flyers[idx]);
+
       const secX = x + TEXT_SECONDARY_OFFSET_X;
       const secY = bottomY + TEXT_SECONDARY_OFFSET_Y;
-      const secT = `${flyers[idx].discountPercent}%`;
+      const secT = `${percentText}%`;
       // Draw twice with 0.4pt offset — fake-bold for small sizes
       page.drawText(secT, { x: secX + 0.4, y: secY, size: TEXT_SECONDARY_SIZE, font: secondaryFont, color: TEXT_SECONDARY_COLOR });
       page.drawText(secT, { x: secX,       y: secY, size: TEXT_SECONDARY_SIZE, font: secondaryFont, color: TEXT_SECONDARY_COLOR });
 
-      draw3DText(page, String(flyers[idx].discountPercent), {
+      // Ranges ("10-30") are wider than a flat 1-2 digit percent — shrink to fit the cell.
+      draw3DText(page, percentText, {
         x:     x + TEXT_PERCENT_OFFSET_X,
         y:     topY - TEXT_PERCENT_OFFSET_Y,
-        size:  TEXT_PERCENT_SIZE,
+        size:  percentText.length > 2 ? TEXT_PERCENT_SIZE * 0.55 : TEXT_PERCENT_SIZE,
         font,
         color: TEXT_PERCENT_COLOR,
       });

@@ -1,5 +1,6 @@
 import { createI18n } from 'vue-i18n';
 import uzbekCyrillic from './locales/uzbek-crylic';
+import uzbekLatin from './locales/uzbek-latin';
 import russian from './locales/russian';
 import axios from 'axios';
 import apiLink from '@/config/api';
@@ -14,6 +15,7 @@ const i18n = createI18n({
   fallbackLocale: 'russian',
   messages: {
     'uzbek-crylic': uzbekCyrillic,
+    'uzbek-latin': uzbekLatin,
     russian,
   },
 });
@@ -30,7 +32,7 @@ if (typeof window !== 'undefined' && window.Telegram?.WebApp?.initDataUnsafe?.us
     })
     .then(res => {
       const lang = res.data?.data?.language;
-      if (lang === 'uzbek-crylic' || lang === 'russian') {
+      if (lang === 'uzbek-crylic' || lang === 'uzbek-latin' || lang === 'russian') {
         i18n.global.locale.value = lang;
         localStorage.setItem(LANG_KEY, lang);
       }

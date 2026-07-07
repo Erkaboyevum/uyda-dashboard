@@ -6,7 +6,8 @@ const router = Router();
 /**
  * POST /flyer/generate
  *
- * Body: { chatID: string|number, flyers: [{ barcode: string, discountPercent: number }] }
+ * Body: { chatID: string|number, flyers: [{ barcode: string, discountPercent?: number, thresholds?: Array }] }
+ * Each flyer has either a flat discountPercent (simple) or a thresholds array (tiered).
  *
  * Generates Flyers_Front.pdf and Flyers_Back.pdf and sends both to chatID via Telegram.
  * Returns immediately after kicking off generation (non-blocking for the frontend).
