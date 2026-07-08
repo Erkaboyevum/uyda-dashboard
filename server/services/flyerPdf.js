@@ -283,7 +283,9 @@ async function generateBackPdf(flyers, bgBytes) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TEMPLATE (ANDOZA) LAYOUT — one flyer per page, full-bleed front.png / back.png.
+// TEMPLATE (ANDOZA) LAYOUT — same A3 3×2 grid as the manual layout above
+// (6 flyers per page: 3 across the top, 3 across the bottom), using
+// front.png / back.png as each cell's background instead of the manual CDN images.
 // Used only for flyers created via the template flow (flyer.thresholds present).
 // Manual flyers keep using generateFrontPdf / generateBackPdf above, untouched.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -302,18 +304,11 @@ async function loadLocalImage(filePath) {
   }
 }
 
-// PDF page size for the template layout — matches back.png/front.png's native
-// 1299×2598 (1:2) aspect ratio exactly, scaled down to sane point dimensions.
-const TEMPLATE_PAGE_W = 420;
-const TEMPLATE_PAGE_H = 840;
-
-// Barcode box on the BACK page, as fractions of the drawn back.png image —
-// NOT hardcoded points, so this stays correct if the asset is swapped for one
-// with different native pixel dimensions (as long as the white area proportions
-// are similar). Origin top-left, Y increases DOWNWARD (top fraction + height).
-// Box sits centered horizontally, below the "QR-kodni skanerlang" text, inside
-// the white strip at the bottom of back.png — clear of the orange QR card and
-// the product photo above it.
+// Barcode box on the BACK cell, as fractions of the drawn back.png image —
+// NOT hardcoded points, so this stays correct regardless of cell size. Origin
+// top-left, Y increases DOWNWARD (top fraction + height). Box sits centered
+// horizontally, below the "QR-kodni skanerlang" text, inside the white strip
+// at the bottom of back.png — clear of the orange QR card and the product photo.
 const TEMPLATE_BARCODE_BOX_X_FRAC      = 0.25;
 const TEMPLATE_BARCODE_BOX_Y_FRAC      = 0.91;
 const TEMPLATE_BARCODE_BOX_WIDTH_FRAC  = 0.50;
@@ -327,13 +322,16 @@ function fitContain(imgW, imgH, boxX, boxY, boxW, boxH) {
   return { x: boxX + (boxW - width) / 2, y: boxY + (boxH - height) / 2, width, height };
 }
 
-// Full-bleed background page: draws bgImage fit-to-page (contain, no distortion).
-function drawFullBleedPage(page, bgImage, pageW, pageH) {
+// Draws bgImage fit-to-cell (contain, no distortion) at the given grid cell.
+function drawCellImage(page, bgImage, cellX, cellBottomY) {
   if (!bgImage) {
-    page.drawRectangle({ x: 0, y: 0, width: pageW, height: pageH, color: rgb(0.93, 0.93, 0.93) });
-    return { x: 0, y: 0, width: pageW, height: pageH };
+    page.drawRectangle({
+      x: cellX, y: cellBottomY, width: CELL_W, height: CELL_H,
+      color: rgb(0.93, 0.93, 0.93), borderColor: rgb(0.6, 0.6, 0.6), borderWidth: 1,
+    });
+    return { x: cellX, y: cellBottomY, width: CELL_W, height: CELL_H };
   }
-  const rect = fitContain(bgImage.width, bgImage.height, 0, 0, pageW, pageH);
+  const rect = fitContain(bgImage.width, bgImage.height, cellX, cellBottomY, CELL_W, CELL_H);
   page.drawImage(bgImage, rect);
   return rect;
 }
@@ -342,9 +340,21 @@ export async function generateTemplateFrontPdf(flyers, bgBytes) {
   const pdfDoc  = await PDFDocument.create();
   const bgImage = bgBytes ? await embedImageBuf(pdfDoc, bgBytes) : null;
 
-  for (let i = 0; i < flyers.length; i++) {
-    const page = pdfDoc.addPage([TEMPLATE_PAGE_W, TEMPLATE_PAGE_H]);
-    drawFullBleedPage(page, bgImage, TEMPLATE_PAGE_W, TEMPLATE_PAGE_H);
+  const perPage  = COLS * ROWS;
+  const numPages = Math.ceil(flyers.length / perPage);
+
+  for (let p = 0; p < numPages; p++) {
+    const page = pdfDoc.addPage([PAGE_W, PAGE_H]);
+
+    for (let slot = 0; slot < perPage; slot++) {
+      const idx = p * perPage + slot;
+      if (idx >= flyers.length) break;
+
+      const col = slot % COLS;
+      const row = Math.floor(slot / COLS);
+      const { x, bottomY } = cellCoords(col, row);
+      drawCellImage(page, bgImage, x, bottomY);
+    }
   }
 
   return Buffer.from(await pdfDoc.save());
@@ -354,24 +364,36 @@ export async function generateTemplateBackPdf(flyers, bgBytes) {
   const pdfDoc  = await PDFDocument.create();
   const bgImage = bgBytes ? await embedImageBuf(pdfDoc, bgBytes) : null;
 
-  for (let i = 0; i < flyers.length; i++) {
-    const page = pdfDoc.addPage([TEMPLATE_PAGE_W, TEMPLATE_PAGE_H]);
-    const imgRect = drawFullBleedPage(page, bgImage, TEMPLATE_PAGE_W, TEMPLATE_PAGE_H);
+  const perPage  = COLS * ROWS;
+  const numPages = Math.ceil(flyers.length / perPage);
 
-    // Barcode box, derived from the drawn image rect (not the raw page) so it
-    // stays correct even if the image is letterboxed within the page.
-    const boxX      = imgRect.x + TEMPLATE_BARCODE_BOX_X_FRAC * imgRect.width;
-    const boxWidth  = TEMPLATE_BARCODE_BOX_WIDTH_FRAC  * imgRect.width;
-    const boxHeight = TEMPLATE_BARCODE_BOX_HEIGHT_FRAC * imgRect.height;
-    const imgTopY   = imgRect.y + imgRect.height;
-    const boxTopY   = imgTopY - TEMPLATE_BARCODE_BOX_Y_FRAC * imgRect.height;
-    const boxY      = boxTopY - boxHeight;
+  for (let p = 0; p < numPages; p++) {
+    const page = pdfDoc.addPage([PAGE_W, PAGE_H]);
 
-    // Reuses the SAME barcode generator as the manual flow — identical value/format.
-    const barcodePng   = await makeBarcodeBuffer(flyers[i].barcode);
-    const barcodeImage = await pdfDoc.embedPng(barcodePng);
-    const drawn = fitContain(barcodeImage.width, barcodeImage.height, boxX, boxY, boxWidth, boxHeight);
-    page.drawImage(barcodeImage, drawn);
+    for (let slot = 0; slot < perPage; slot++) {
+      const idx = p * perPage + slot;
+      if (idx >= flyers.length) break;
+
+      const col = slot % COLS;
+      const row = Math.floor(slot / COLS);
+      const { x, bottomY } = cellCoords(col, row);
+      const imgRect = drawCellImage(page, bgImage, x, bottomY);
+
+      // Barcode box, derived from the drawn image rect (not the raw cell) so it
+      // stays correct even if the image is letterboxed within the cell.
+      const boxX      = imgRect.x + TEMPLATE_BARCODE_BOX_X_FRAC * imgRect.width;
+      const boxWidth  = TEMPLATE_BARCODE_BOX_WIDTH_FRAC  * imgRect.width;
+      const boxHeight = TEMPLATE_BARCODE_BOX_HEIGHT_FRAC * imgRect.height;
+      const imgTopY   = imgRect.y + imgRect.height;
+      const boxTopY   = imgTopY - TEMPLATE_BARCODE_BOX_Y_FRAC * imgRect.height;
+      const boxY      = boxTopY - boxHeight;
+
+      // Reuses the SAME barcode generator as the manual flow — identical value/format.
+      const barcodePng   = await makeBarcodeBuffer(flyers[idx].barcode);
+      const barcodeImage = await pdfDoc.embedPng(barcodePng);
+      const drawn = fitContain(barcodeImage.width, barcodeImage.height, boxX, boxY, boxWidth, boxHeight);
+      page.drawImage(barcodeImage, drawn);
+    }
   }
 
   return Buffer.from(await pdfDoc.save());
