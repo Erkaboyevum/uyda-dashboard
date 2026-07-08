@@ -13,8 +13,9 @@ function isTemplateFlyer(flyer) {
 /**
  * POST /flyer/generate
  *
- * Body: { chatID: string|number, flyers: [{ barcode: string, discountPercent?: number, thresholds?: Array }] }
+ * Body: { chatID: string|number, flyers: [{ barcode: string, discountPercent?: number, thresholds?: Array }], promoterName?: string }
  * Each flyer has either a flat discountPercent (simple/manual) or a thresholds array (tiered/template).
+ * promoterName (the counterparty's display name) is optional — used to label the Telegram filename/caption.
  *
  * Generates Flyers_Front.pdf and Flyers_Back.pdf and sends both to chatID via Telegram.
  * Template flyers (thresholds present) use the front.png/back.png template layout with the
@@ -22,7 +23,7 @@ function isTemplateFlyer(flyer) {
  * Returns immediately after kicking off generation (non-blocking for the frontend).
  */
 router.post('/generate', async (req, res) => {
-  const { chatID, flyers } = req.body;
+  const { chatID, flyers, promoterName } = req.body;
 
   if (!chatID) {
     return res.status(400).json({ success: false, error: 'chatID is required' });
@@ -44,7 +45,7 @@ router.post('/generate', async (req, res) => {
   // first flyer's shape determines which layout the whole batch uses.
   const generate = isTemplateFlyer(flyers[0]) ? processAndSendTemplateFlyers : processAndSendFlyers;
 
-  generate(chatID, flyers, botToken).catch(err => {
+  generate(chatID, flyers, botToken, promoterName).catch(err => {
     console.error(`[flyer] chatID=${chatID} error:`, err.message);
   });
 });

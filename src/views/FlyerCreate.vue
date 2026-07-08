@@ -304,9 +304,11 @@ async function submitFlyer() {
     // doesn't block. The PDFs will arrive in Telegram within a few seconds.
     const generatedFlyers = res.data?.data || res.data?.flyers || [];
     if (generatedFlyers.length > 0) {
+      const promoterName = counterparties.value.find(cp => cp.id === promoterId.value)?.name || '';
       axios.post('/api/flyer/generate', {
         chatID: chatId,
         flyers: generatedFlyers,
+        promoterName,
       }).catch(err => console.warn('[pdf]', err.message));
     }
 

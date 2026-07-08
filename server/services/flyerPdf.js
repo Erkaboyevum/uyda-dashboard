@@ -166,6 +166,17 @@ function getPercentDisplay(flyer) {
   return String(flyer.discountPercent);
 }
 
+// All flyers in one batch share the same promoter + discount, so the first
+// flyer is representative. Builds the filename/caption shown in Telegram —
+// "which counterparty, what percent" — for either side (front/back).
+function buildDeliveryInfo(flyers, promoterName, side, caption) {
+  const percentLabel = getPercentDisplay(flyers[0]);
+  const namePart = promoterName ? `_${promoterName.replace(/[\\/:*?"<>|]/g, '').trim().replace(/\s+/g, '_')}` : '';
+  const filename = `Flyers_${side}${namePart}_${percentLabel}%.pdf`;
+  const details = promoterName ? `\nКонтрагент: ${promoterName}\nЧегирма: ${percentLabel}%` : `\nЧегирма: ${percentLabel}%`;
+  return { filename, caption: `${caption}${details}` };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // PDF GENERATORS
 // Both accept a pre-fetched bgBytes buffer (may be null → gray placeholder).
@@ -367,7 +378,7 @@ export async function generateTemplateBackPdf(flyers, bgBytes) {
 }
 
 // Same execution order guarantee as processAndSendFlyers below.
-export async function processAndSendTemplateFlyers(chatId, flyers, botToken) {
+export async function processAndSendTemplateFlyers(chatId, flyers, botToken, promoterName) {
   console.log('[pdf] (template) loading front.png + back.png from local assets...');
   const [frontImgBuf, backImgBuf] = await Promise.all([
     loadLocalImage(TEMPLATE_FRONT_IMAGE_PATH),
@@ -385,8 +396,10 @@ export async function processAndSendTemplateFlyers(chatId, flyers, botToken) {
   ]);
   console.log(`[pdf] (template) PDFs ready — front: ${frontBuf.length}B  back: ${backBuf.length}B`);
 
-  await sendDocumentToTelegram(botToken, chatId, frontBuf, 'Flyers_Front.pdf', 'Флайер — олдинги томон 🎟️');
-  await sendDocumentToTelegram(botToken, chatId, backBuf,  'Flyers_Back.pdf',  'Флайер — орқа томон 🔖');
+  const front = buildDeliveryInfo(flyers, promoterName, 'Front', 'Флайер — олдинги томон 🎟️');
+  const back  = buildDeliveryInfo(flyers, promoterName, 'Back',  'Флайер — орқа томон 🔖');
+  await sendDocumentToTelegram(botToken, chatId, frontBuf, front.filename, front.caption);
+  await sendDocumentToTelegram(botToken, chatId, backBuf,  back.filename,  back.caption);
   console.log('[pdf] (template) both documents delivered to Telegram');
 }
 
@@ -419,7 +432,7 @@ async function sendDocumentToTelegram(botToken, chatId, pdfBuffer, filename, cap
 //   3. Send front PDF to Telegram, then back PDF
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function processAndSendFlyers(chatId, flyers, botToken) {
+export async function processAndSendFlyers(chatId, flyers, botToken, promoterName) {
   // ── Step 1: Pre-fetch fonts + both background images ─────────────────────
   console.log('[pdf] fetching assets (fonts + background images)...');
   const [fredokaBytes, montserratBytes, frontImgBuf, backImgBuf] = await Promise.all([
@@ -444,7 +457,9 @@ export async function processAndSendFlyers(chatId, flyers, botToken) {
   console.log(`[pdf] PDFs ready — front: ${frontBuf.length}B  back: ${backBuf.length}B`);
 
   // ── Step 3: Send to Telegram ──────────────────────────────────────────────
-  await sendDocumentToTelegram(botToken, chatId, frontBuf, 'Flyers_Front.pdf', 'Флайер — олдинги томон 🎟️');
-  await sendDocumentToTelegram(botToken, chatId, backBuf,  'Flyers_Back.pdf',  'Флайер — орқа томон 🔖');
+  const front = buildDeliveryInfo(flyers, promoterName, 'Front', 'Флайер — олдинги томон 🎟️');
+  const back  = buildDeliveryInfo(flyers, promoterName, 'Back',  'Флайер — орқа томон 🔖');
+  await sendDocumentToTelegram(botToken, chatId, frontBuf, front.filename, front.caption);
+  await sendDocumentToTelegram(botToken, chatId, backBuf,  back.filename,  back.caption);
   console.log('[pdf] both documents delivered to Telegram');
 }
