@@ -290,7 +290,7 @@ async function submitFlyer() {
           promoter_id: String(promoterId.value),
         };
 
-    const res = await axios.post(FLYER_BASE, payload, {
+    const res = await axios.post(`${FLYER_BASE}/object`, payload, {
       headers: getFlyerHeaders(),
       timeout: 15000,
       validateStatus: (s) => s >= 200 && s < 500,
