@@ -1,15 +1,24 @@
 import { Router } from 'express';
-import { processAndSendFlyers } from '../services/flyerPdf.js';
+import { processAndSendFlyers, processAndSendTemplateFlyers } from '../services/flyerPdf.js';
 
 const router = Router();
+
+// A flyer created via a template (andoza) carries a thresholds array (tiered
+// discount); manual flyers carry a flat discountPercent instead. This is the
+// same signal getPercentDisplay() in flyerPdf.js already relies on.
+function isTemplateFlyer(flyer) {
+  return Array.isArray(flyer.thresholds) && flyer.thresholds.length > 0;
+}
 
 /**
  * POST /flyer/generate
  *
  * Body: { chatID: string|number, flyers: [{ barcode: string, discountPercent?: number, thresholds?: Array }] }
- * Each flyer has either a flat discountPercent (simple) or a thresholds array (tiered).
+ * Each flyer has either a flat discountPercent (simple/manual) or a thresholds array (tiered/template).
  *
  * Generates Flyers_Front.pdf and Flyers_Back.pdf and sends both to chatID via Telegram.
+ * Template flyers (thresholds present) use the front.png/back.png template layout with the
+ * barcode placed in the white area of back.png; manual flyers keep the existing grid layout.
  * Returns immediately after kicking off generation (non-blocking for the frontend).
  */
 router.post('/generate', async (req, res) => {
@@ -31,7 +40,11 @@ router.post('/generate', async (req, res) => {
   // PDF generation + Telegram upload runs in the background.
   res.json({ success: true, queued: flyers.length });
 
-  processAndSendFlyers(chatID, flyers, botToken).catch(err => {
+  // All flyers in a single request come from the same creation flow, so the
+  // first flyer's shape determines which layout the whole batch uses.
+  const generate = isTemplateFlyer(flyers[0]) ? processAndSendTemplateFlyers : processAndSendFlyers;
+
+  generate(chatID, flyers, botToken).catch(err => {
     console.error(`[flyer] chatID=${chatID} error:`, err.message);
   });
 });

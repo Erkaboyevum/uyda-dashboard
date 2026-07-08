@@ -267,6 +267,114 @@ async function generateBackPdf(flyers, bgBytes) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// TEMPLATE (ANDOZA) LAYOUT — one flyer per page, full-bleed front.png / back.png.
+// Used only for flyers created via the template flow (flyer.thresholds present).
+// Manual flyers keep using generateFrontPdf / generateBackPdf above, untouched.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const TEMPLATE_FRONT_IMAGE_URL = 'https://silly-hamster-97d004.netlify.app/front.png';
+const TEMPLATE_BACK_IMAGE_URL  = 'https://silly-hamster-97d004.netlify.app/back.png';
+
+// PDF page size for the template layout — matches back.png/front.png's native
+// 1299×2598 (1:2) aspect ratio exactly, scaled down to sane point dimensions.
+const TEMPLATE_PAGE_W = 420;
+const TEMPLATE_PAGE_H = 840;
+
+// Barcode box on the BACK page, as fractions of the drawn back.png image —
+// NOT hardcoded points, so this stays correct if the asset is swapped for one
+// with different native pixel dimensions (as long as the white area proportions
+// are similar). Origin top-left, Y increases DOWNWARD (top fraction + height).
+// Box sits centered horizontally, below the "QR-kodni skanerlang" text, inside
+// the white strip at the bottom of back.png — clear of the orange QR card and
+// the product photo above it.
+const TEMPLATE_BARCODE_BOX_X_FRAC      = 0.25;
+const TEMPLATE_BARCODE_BOX_Y_FRAC      = 0.91;
+const TEMPLATE_BARCODE_BOX_WIDTH_FRAC  = 0.50;
+const TEMPLATE_BARCODE_BOX_HEIGHT_FRAC = 0.075;
+
+// Scales (imgW,imgH) to fit inside (boxW,boxH) without distortion, centered.
+function fitContain(imgW, imgH, boxX, boxY, boxW, boxH) {
+  const scale = Math.min(boxW / imgW, boxH / imgH);
+  const width  = imgW * scale;
+  const height = imgH * scale;
+  return { x: boxX + (boxW - width) / 2, y: boxY + (boxH - height) / 2, width, height };
+}
+
+// Full-bleed background page: draws bgImage fit-to-page (contain, no distortion).
+function drawFullBleedPage(page, bgImage, pageW, pageH) {
+  if (!bgImage) {
+    page.drawRectangle({ x: 0, y: 0, width: pageW, height: pageH, color: rgb(0.93, 0.93, 0.93) });
+    return { x: 0, y: 0, width: pageW, height: pageH };
+  }
+  const rect = fitContain(bgImage.width, bgImage.height, 0, 0, pageW, pageH);
+  page.drawImage(bgImage, rect);
+  return rect;
+}
+
+export async function generateTemplateFrontPdf(flyers, bgBytes) {
+  const pdfDoc  = await PDFDocument.create();
+  const bgImage = bgBytes ? await embedImageBuf(pdfDoc, bgBytes) : null;
+
+  for (let i = 0; i < flyers.length; i++) {
+    const page = pdfDoc.addPage([TEMPLATE_PAGE_W, TEMPLATE_PAGE_H]);
+    drawFullBleedPage(page, bgImage, TEMPLATE_PAGE_W, TEMPLATE_PAGE_H);
+  }
+
+  return Buffer.from(await pdfDoc.save());
+}
+
+export async function generateTemplateBackPdf(flyers, bgBytes) {
+  const pdfDoc  = await PDFDocument.create();
+  const bgImage = bgBytes ? await embedImageBuf(pdfDoc, bgBytes) : null;
+
+  for (let i = 0; i < flyers.length; i++) {
+    const page = pdfDoc.addPage([TEMPLATE_PAGE_W, TEMPLATE_PAGE_H]);
+    const imgRect = drawFullBleedPage(page, bgImage, TEMPLATE_PAGE_W, TEMPLATE_PAGE_H);
+
+    // Barcode box, derived from the drawn image rect (not the raw page) so it
+    // stays correct even if the image is letterboxed within the page.
+    const boxX      = imgRect.x + TEMPLATE_BARCODE_BOX_X_FRAC * imgRect.width;
+    const boxWidth  = TEMPLATE_BARCODE_BOX_WIDTH_FRAC  * imgRect.width;
+    const boxHeight = TEMPLATE_BARCODE_BOX_HEIGHT_FRAC * imgRect.height;
+    const imgTopY   = imgRect.y + imgRect.height;
+    const boxTopY   = imgTopY - TEMPLATE_BARCODE_BOX_Y_FRAC * imgRect.height;
+    const boxY      = boxTopY - boxHeight;
+
+    // Reuses the SAME barcode generator as the manual flow — identical value/format.
+    const barcodePng   = await makeBarcodeBuffer(flyers[i].barcode);
+    const barcodeImage = await pdfDoc.embedPng(barcodePng);
+    const drawn = fitContain(barcodeImage.width, barcodeImage.height, boxX, boxY, boxWidth, boxHeight);
+    page.drawImage(barcodeImage, drawn);
+  }
+
+  return Buffer.from(await pdfDoc.save());
+}
+
+// Same execution order guarantee as processAndSendFlyers below.
+export async function processAndSendTemplateFlyers(chatId, flyers, botToken) {
+  console.log('[pdf] (template) fetching front.png + back.png...');
+  const [frontImgBuf, backImgBuf] = await Promise.all([
+    fetchImageRaw(TEMPLATE_FRONT_IMAGE_URL),
+    fetchImageRaw(TEMPLATE_BACK_IMAGE_URL),
+  ]);
+  console.log(
+    `[pdf] (template) assets ready — front: ${frontImgBuf?.length ?? 'null'}B` +
+    `  back: ${backImgBuf?.length ?? 'null'}B`,
+  );
+
+  console.log(`[pdf] (template) generating PDFs for ${flyers.length} flyers...`);
+  const [frontBuf, backBuf] = await Promise.all([
+    generateTemplateFrontPdf(flyers, frontImgBuf),
+    generateTemplateBackPdf(flyers, backImgBuf),
+  ]);
+  console.log(`[pdf] (template) PDFs ready — front: ${frontBuf.length}B  back: ${backBuf.length}B`);
+
+  await sendDocumentToTelegram(botToken, chatId, frontBuf, 'Flyers_Front.pdf', 'Флайер — олдинги томон 🎟️');
+  await sendDocumentToTelegram(botToken, chatId, backBuf,  'Flyers_Back.pdf',  'Флайер — орқа томон 🔖');
+  console.log('[pdf] (template) both documents delivered to Telegram');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // TELEGRAM DELIVERY
 // ─────────────────────────────────────────────────────────────────────────────
 
