@@ -3,6 +3,11 @@ import bwipjs from 'bwip-js';
 import axios from 'axios';
 import FormData from 'form-data';
 import https from 'https';
+import { readFile } from 'fs/promises';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const cdnAgent = new https.Agent({ rejectUnauthorized: false });
 
@@ -272,8 +277,19 @@ async function generateBackPdf(flyers, bgBytes) {
 // Manual flyers keep using generateFrontPdf / generateBackPdf above, untouched.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const TEMPLATE_FRONT_IMAGE_URL = 'https://silly-hamster-97d004.netlify.app/front.png';
-const TEMPLATE_BACK_IMAGE_URL  = 'https://silly-hamster-97d004.netlify.app/back.png';
+// Bundled locally (server/assets/flyer-template/) rather than fetched over HTTP —
+// generation must not depend on reaching an external host at runtime.
+const TEMPLATE_FRONT_IMAGE_PATH = path.join(__dirname, '..', 'assets', 'flyer-template', 'front.png');
+const TEMPLATE_BACK_IMAGE_PATH  = path.join(__dirname, '..', 'assets', 'flyer-template', 'back.png');
+
+async function loadLocalImage(filePath) {
+  try {
+    return await readFile(filePath);
+  } catch (err) {
+    console.warn(`[pdf] template asset unavailable (${filePath}): ${err.message} — placeholder will be used`);
+    return null;
+  }
+}
 
 // PDF page size for the template layout — matches back.png/front.png's native
 // 1299×2598 (1:2) aspect ratio exactly, scaled down to sane point dimensions.
@@ -352,10 +368,10 @@ export async function generateTemplateBackPdf(flyers, bgBytes) {
 
 // Same execution order guarantee as processAndSendFlyers below.
 export async function processAndSendTemplateFlyers(chatId, flyers, botToken) {
-  console.log('[pdf] (template) fetching front.png + back.png...');
+  console.log('[pdf] (template) loading front.png + back.png from local assets...');
   const [frontImgBuf, backImgBuf] = await Promise.all([
-    fetchImageRaw(TEMPLATE_FRONT_IMAGE_URL),
-    fetchImageRaw(TEMPLATE_BACK_IMAGE_URL),
+    loadLocalImage(TEMPLATE_FRONT_IMAGE_PATH),
+    loadLocalImage(TEMPLATE_BACK_IMAGE_PATH),
   ]);
   console.log(
     `[pdf] (template) assets ready — front: ${frontImgBuf?.length ?? 'null'}B` +
